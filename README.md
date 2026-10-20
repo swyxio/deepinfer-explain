@@ -1,8 +1,8 @@
 # DeepInfer, explained
 
-An independent, source-linked field guide to DeepSeek's DeepInfer inference engine. It maps the public offline release, its major code paths, the larger production system described by DeepSeek, and relevant research and comparisons.
+An independent, source-linked field guide to DeepSeek's DeepInfer inference engine. It starts with an annotated reading of Latent Space's English translation of DeepSeek's deployment article, then connects the wider production system to the public offline release, research and alternative approaches.
 
-The source tour is pinned to DeepInfer commit [`774ce244b87cc0eb8d4b94ab9f5de2ab22049f01`](https://github.com/deepseek-ai/DeepInfer/commit/774ce244b87cc0eb8d4b94ab9f5de2ab22049f01), inspected on October 20, 2026. It covers the major subsystems rather than every file or vendor kernel. Production figures are attributed to DeepSeek; the open release is not the full production service.
+The source tour is pinned to DeepInfer commit [`774ce244b87cc0eb8d4b94ab9f5de2ab22049f01`](https://github.com/deepseek-ai/DeepInfer/commit/774ce244b87cc0eb8d4b94ab9f5de2ab22049f01), inspected on October 20, 2026. The codemap indexes all 342 first-party files and their folders, including configuration, examples, tests and assets. It includes 822 source-anchored symbol, branch and documentation notes across 314 files, plus ten execution maps. Six vendor submodules are documented at their integration boundaries; their internals were not inspected. Execution maps trace source paths and branch conditions, not observed accelerator runs. Production figures are attributed to DeepSeek; the open release is not the full production service.
 
 ## Run locally
 
@@ -11,10 +11,10 @@ pnpm install
 pnpm dev
 ```
 
-`pnpm build` produces a static site in `dist/`; `pnpm preview` serves that build. The app and its checked-in excerpts build without access to the DeepInfer checkout or network APIs (the optional web fonts have system fallbacks).
+`pnpm build` produces a static site in `dist/`; `pnpm preview` serves that build. The app and its checked-in source snapshot build without access to the DeepInfer checkout or network APIs (the optional web fonts have system fallbacks). Source text is fetched only when an execution map or file is opened.
 
-## Update source excerpts
+## Update and verify source annotations
 
-To regenerate and validate the source references, put a clean checkout of DeepInfer at `./DeepInfer` at the pinned commit, then run `pnpm verify:sources`. The script validates the revision, paths, and line ranges and writes `src/snippets.json`. Review the annotations and source links when changing the revision; line validity alone does not verify semantic accuracy. Vendor submodules were not inspected for this guide.
+To regenerate and validate the source references, put a clean checkout of DeepInfer at `./DeepInfer` at the pinned commit, then run `pnpm verify:sources`. The scripts validate the revision, complete file/folder coverage, chapter links, symbol, trace and article source line ranges, and write `src/snippets.json`, `src/source-manifest.json` and `public/source-data.json`. Curated notes live in `src/file-notes.ts`, `src/symbol-notes-*.ts`, `src/execution-paths.ts`, `src/article-notes.ts` and `src/modules.ts`. Review the annotations and source links when changing the revision; a valid line number does not establish semantic accuracy or prove a runtime branch was executed.
 
 Source excerpts are from [DeepInfer](https://github.com/deepseek-ai/DeepInfer), licensed under the [Apache License 2.0](public/DEEPINFER-LICENSE.txt). The source remains the authoritative reference. This project is independent of DeepSeek.

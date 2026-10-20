@@ -1,0 +1,110 @@
+import { execFileSync } from 'node:child_process';
+import { readFile, writeFile } from 'node:fs/promises';
+import ts from 'typescript';
+
+const revision = '774ce244b87cc0eb8d4b94ab9f5de2ab22049f01';
+const checkout = execFileSync('git', ['-C', 'DeepInfer', 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+if (checkout !== revision) throw new Error(`Expected DeepInfer ${revision}; checkout is ${checkout}`);
+const dirty = execFileSync('git', ['-C', 'DeepInfer', 'status', '--porcelain', '--untracked-files=no'], { encoding: 'utf8' }).trim();
+if (dirty) throw new Error('DeepInfer has tracked changes; the codemap must match the pinned revision.');
+
+const entries = execFileSync('git', ['-C', 'DeepInfer', 'ls-files', '--stage', '-z'], { encoding: 'utf8' }).split('\0').filter(Boolean);
+const submoduleConfig = execFileSync('git', ['config', '-f', 'DeepInfer/.gitmodules', '--get-regexp', '^submodule\\..*\\.(path|url)$'], { encoding: 'utf8' });
+const submodulePairs = new Map();
+for (const line of submoduleConfig.trim().split('\n')) {
+  const match = line.match(/^(submodule\..+)\.(path|url) (.+)$/);
+  if (!match) throw new Error(`Invalid submodule configuration: ${line}`);
+  const pair = submodulePairs.get(match[1]) || {};
+  pair[match[2]] = match[3];
+  submodulePairs.set(match[1], pair);
+}
+const submoduleUrls = new Map([...submodulePairs.values()].map(pair => [pair.path, pair.url]));
+async function loadData(filename) {
+  const source = await readFile(filename, 'utf8');
+  const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 } }).outputText;
+  return import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
+}
+const [{ fileNotes, folderNotes }, { executionPaths }, { modules }, { articleSections }, { kernelSymbolNotes }, { runtimeSymbolNotes }, { supportSymbolNotes }, { additionalSymbolNotes }] = await Promise.all([
+  loadData('src/file-notes.ts'), loadData('src/execution-paths.ts'), loadData('src/modules.ts'), loadData('src/article-notes.ts'),
+  loadData('src/symbol-notes-kernels.ts'), loadData('src/symbol-notes-runtime.ts'), loadData('src/symbol-notes-support.ts'),
+  loadData('src/symbol-notes-additional.ts'),
+]);
+const manifest = [];
+const contents = {};
+for (const entry of entries) {
+  const [header, filename] = entry.split('\t');
+  const [mode, object] = header.split(' ');
+  if (mode === '160000') {
+    const url = submoduleUrls.get(filename);
+    if (!url) throw new Error(`Missing upstream URL for submodule ${filename}`);
+    manifest.push({ path: filename, kind: 'submodule', object, url: url.replace(/\.git$/, '') });
+    continue;
+  }
+  const bytes = await readFile(`DeepInfer/${filename}`);
+  const isText = !bytes.includes(0) && !/\.(png|jpe?g|gif|webp|pdf)$/i.test(filename);
+  if (!isText) {
+    manifest.push({ path: filename, kind: 'binary', size: bytes.length });
+    continue;
+  }
+  const content = bytes.toString('utf8');
+  const lines = content.split('\n');
+  const symbols = [];
+  for (const [index, line] of lines.entries()) {
+    const match = line.match(/^\s*(?:(?:async\s+)?(def|class)\s+([A-Za-z_]\w*)\s*[(:]|(class|struct|enum(?:\s+class)?)\s+([A-Za-z_]\w*)\b)/);
+    if (match) symbols.push({ name: match[2] || match[4], kind: match[1] || match[3], line: index + 1 });
+  }
+  manifest.push({ path: filename, kind: 'text', size: bytes.length, lines: lines.length, symbols });
+  contents[filename] = content;
+}
+const firstParty = manifest.filter(entry => entry.kind !== 'submodule').map(entry => entry.path);
+const missingNotes = firstParty.filter(filename => !fileNotes[filename]);
+const extraNotes = Object.keys(fileNotes).filter(filename => !firstParty.includes(filename));
+if (missingNotes.length || extraNotes.length) throw new Error(`File note coverage mismatch. Missing: ${missingNotes.join(', ')}; extra: ${extraNotes.join(', ')}`);
+const folderPaths = new Set(['.']);
+for (const entry of manifest) {
+  const parts = entry.path.split('/');
+  for (let i = 1; i < parts.length; i++) folderPaths.add(parts.slice(0, i).join('/'));
+  if (entry.kind === 'submodule') folderPaths.add(entry.path);
+}
+const missingFolders = [...folderPaths].filter(folder => !folderNotes[folder]);
+const extraFolders = Object.keys(folderNotes).filter(folder => !folderPaths.has(folder));
+if (missingFolders.length || extraFolders.length) throw new Error(`Folder note coverage mismatch. Missing: ${missingFolders.join(', ')}; extra: ${extraFolders.join(', ')}`);
+function verifyAnchor(filename, line, label) {
+  const text = contents[filename];
+  if (text === undefined || !Number.isInteger(line) || line < 1 || line > text.split('\n').length) throw new Error(`Invalid ${label} anchor: ${filename}:${line}`);
+}
+const moduleIds = new Set(modules.map(module => module.id));
+for (const module of modules) for (const file of module.files) verifyAnchor(file.path, file.line, `chapter ${module.id}`);
+let symbolNoteCount = 0;
+const annotatedFiles = new Set();
+for (const dataset of [kernelSymbolNotes, runtimeSymbolNotes, supportSymbolNotes, additionalSymbolNotes]) {
+  for (const [filename, notes] of Object.entries(dataset)) {
+    if (!Array.isArray(notes) || !notes.length) throw new Error(`Empty symbol notes: ${filename}`);
+    for (const note of notes) {
+      verifyAnchor(filename, note.line, `symbol ${note.symbol}`);
+      if (!note.symbol?.trim() || !note.note?.trim()) throw new Error(`Incomplete symbol note: ${filename}:${note.line}`);
+      symbolNoteCount++;
+    }
+    annotatedFiles.add(filename);
+  }
+}
+const unannotatedSource = manifest.filter(entry => entry.kind === 'text' && entry.size > 0 && /\.(pyi?|cpp|hpp|h|cu|cuh|sh|md)$/i.test(entry.path) && !annotatedFiles.has(entry.path));
+if (unannotatedSource.length) throw new Error(`Missing detailed notes for nonempty source or documentation: ${unannotatedSource.map(entry => entry.path).join(', ')}`);
+for (const trace of executionPaths) {
+  for (const id of trace.related) if (!moduleIds.has(id)) throw new Error(`Unknown chapter ${id} in trace ${trace.id}`);
+  for (const step of trace.steps) verifyAnchor(step.path, step.line, `trace ${trace.id}`);
+}
+const sourcePrefix = `https://github.com/deepseek-ai/DeepInfer/blob/${revision}/`;
+for (const section of articleSections) for (const annotation of section.annotations) {
+  for (const link of [...annotation.evidence, ...annotation.code, ...annotation.related]) {
+    new URL(link.url);
+    if (link.url.startsWith(sourcePrefix)) {
+      const [filename, hash] = link.url.slice(sourcePrefix.length).split('#L');
+      verifyAnchor(filename, Number(hash), `article ${annotation.id}`);
+    }
+  }
+}
+await writeFile('src/source-manifest.json', JSON.stringify(manifest) + '\n');
+await writeFile('public/source-data.json', JSON.stringify(contents) + '\n');
+console.log(`Indexed ${manifest.length} tracked entries: ${Object.keys(contents).length} text files, ${manifest.filter(x => x.kind === 'binary').length} binary assets, ${manifest.filter(x => x.kind === 'submodule').length} submodules.`);
+console.log(`Validated ${firstParty.length} file notes, ${folderPaths.size} folder and vendor notes, ${symbolNoteCount} detailed anchors across ${annotatedFiles.size} files, ${executionPaths.reduce((n, trace) => n + trace.steps.length, 0)} trace anchors, and article source anchors.`);

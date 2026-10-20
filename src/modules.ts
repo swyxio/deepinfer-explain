@@ -48,7 +48,7 @@ export const modules: Module[] = [
     details: [
       "A sequence records its input, generation state, cached-token count, scheduling state, and speculative-decoding state. The Python engine passes configuration, process groups, and memory managers to the native scheduler.",
       "NORMAL mode coordinates prefill versus decode across data-parallel ranks; PROMPT and COMPLETION modes select only their respective phases. In NORMAL mode, periodic group votes balance the preference for synchronized prefill with an eventual opportunity for an isolated rank to prefill.",
-      "Prefill can be chunked to fit token and memory budgets. Decode schedules running sequences and can preempt when blocks are insufficient; later output processing accounts for accepted draft tokens and updates sequence state. Engine stage support is not the same as a complete disaggregated service.",
+      "Prefill can be chunked to fit token and memory budgets. Decode schedules running sequences and can preempt when blocks are insufficient; later output processing accounts for accepted draft tokens and updates sequence state. The production Q&A describes a fitted time-quota policy; the released scheduler visibly enforces token, sequence and cache limits. Stage support is not a complete disaggregated service.",
     ],
     files: [
       { path: "deepinfer/engine/llm_engine.py", line: 307, label: "Construct scheduler", note: "Connects native scheduling to block/state managers, parallel groups, and configuration." },
@@ -64,7 +64,7 @@ export const modules: Module[] = [
     id: "overlap",
     title: "Zero-overhead scheduling",
     category: "Runtime",
-    summary: "The worker overlaps CPU-side scheduling and postprocessing with GPU forward and sampling work instead of synchronizing after each decode step.",
+    summary: "When enabled, the worker overlaps CPU-side scheduling and postprocessing with device forward and sampling work instead of synchronizing after each decode step.",
     why: "At low per-step latency, idle gaps between many small decode iterations can waste a significant fraction of device time.",
     details: [
       "In the worker's unified step, the current forward is launched, the previous step is postprocessed, and the current sample is launched. Decode postprocessing is deferred to the next iteration when zero-overhead scheduling is enabled; prefill and non-overlapped execution are processed immediately.",
@@ -130,7 +130,7 @@ export const modules: Module[] = [
     why: "Reusing keys and values avoids recomputing the entire context for every generated token, but memory allocation and cache layout bound concurrency.",
     details: [
       "CacheEngine computes a model-specific layout, allocates GPU blocks and state buffers, and exposes per-layer views. Blocks hold paged KV; state slots also represent bounded sliding-window and compression state.",
-      "The C++ free list reserves block zero, tracks reference counts, and supports pinning and freeing blocks. The scheduler uses these allocations and can preempt requests when there is insufficient space.",
+      "The C++ free list reserves block zero, tracks reference counts, and supports pinning and freeing blocks. The scheduler uses these allocations and can preempt requests when there is insufficient space. WorkerBase profiles available blocks and uses an all-reduced, rounded-down average; the engine's docstring instead says minimum.",
       "These in-flight structures are in the open release. They do not constitute the separate, persistent distributed prefix-cache system described in the production Q&A; that storage and its routing integration are not included.",
     ],
     files: [
@@ -171,7 +171,7 @@ export const modules: Module[] = [
     why: "MoE activates only part of the available expert weights per token, but uneven routing can leave the slowest accelerator determining the latency of the whole batch.",
     details: [
       "The gate produces top-k expert IDs and weights. Logical selections are mapped to physical expert replicas, after which the communication buffer dispatches token activations and later combines expert outputs. Shared experts provide a separate path.",
-      "Expert-parallel load balancing collects load information and changes replica placement; shuffle code moves weights to match the new assignment. This is expert-load balancing, not the omitted load balancer that routes requests across independent data-parallel replicas.",
+      "Expert-parallel load balancing can collect load information and change replica placement; shuffle code moves weights to match the new assignment. The library default rearrangement interval is zero, while the offline example enables a 30-step interval when EPLB is enabled. This is not the omitted request load balancer across independent replicas.",
       "The production Q&A describes more redundancy and a shorter statistics window for prefill than decode. Its reported load-balance ratios and Wide-EP throughput comparison are DeepSeek measurements for specific deployments, not a universal performance guarantee.",
     ],
     files: [
@@ -208,11 +208,11 @@ export const modules: Module[] = [
     id: "speculation",
     title: "DSpark and variable verification",
     category: "Decoding",
-    summary: "Draft tokens are generated ahead and verified by the main model; confidence estimates and a device-throughput curve determine how much draft work to verify.",
+    summary: "Draft tokens are generated ahead and verified by the main model; optional confidence scheduling uses a device-throughput curve to choose how much draft work to verify.",
     why: "A single main-model pass can accept multiple tokens, but verifying unlikely drafts consumes work that might be better spent on other requests.",
     details: [
       "The builder attaches DFlash prediction blocks when the checkpoint config enables next-token prediction. During forward, selected target-layer features feed the DFlash main cache; sampling and verification decide which proposed tokens survive.",
-      "The variable-length scheduler sorts estimated acceptance rates and chooses a total query budget using a profiled decode curve and observed runtime. Because overlapped scheduling can be one step ahead of fresh confidence, a TileLang path redistributes that budget on device.",
+      "When variable-length scheduling is enabled and a profiled curve exists, the scheduler sorts estimated acceptance rates and chooses a total query budget. An empty curve falls back to verifying all available drafts. Because overlapped scheduling can be one step ahead of fresh confidence, a TileLang path redistributes the chosen budget on device.",
       "The readable PyTorch reference computes cumulative confidence products, ranks draft positions globally, and assigns one base token plus the positions won by each sequence. DeepSeek's Q&A reports an estimated +5.4% throughput at 60 sequences per rank but −1.5% at 16, illustrating that the tradeoff depends on load.",
     ],
     files: [

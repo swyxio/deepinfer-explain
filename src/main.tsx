@@ -1,9 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, BookOpen, Boxes, Check, ChevronDown, CircleHelp, Code2, ExternalLink, FileCode2, GitBranch, Layers3, Menu, Search, X } from 'lucide-react';
+import { ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, BookOpen, Boxes, ChevronDown, CircleHelp, Code2, ExternalLink, FileCode2, GitBranch, Layers3, Map, Menu, Search, Workflow, X } from 'lucide-react';
 import { modules, type Module, type SourceFile } from './modules';
 import { comparisons, readings } from './research';
 import snippets from './snippets.json';
+import { CodemapPage, sourceEntries, fileRoute } from './codemap';
+import { fileNotes, folderNotes } from './file-notes';
+import { ArticleGuide, ExecutionGuide } from './guides';
+import { readingForModule } from './connections';
 import './style.css';
 
 const REVISION = '774ce244b87cc0eb8d4b94ab9f5de2ab22049f01';
@@ -12,27 +16,13 @@ const sourceUrl = (path: string, line?: number) => `${ROOT}/${path}${line ? `#L$
 const snippetMap = snippets as Record<string, { start: number; lines: string[] }>;
 
 const navItems = [
-  { id: 'overview', title: 'Start here', icon: Layers3 },
-  { id: 'source', title: 'Explore the code', icon: Code2 },
+  { id: 'overview', title: 'Annotated deployment', icon: Layers3 },
+  { id: 'codemap', title: 'Code map', icon: Map },
+  { id: 'execution', title: 'Execution paths', icon: Workflow },
+  { id: 'source', title: 'Subsystem chapters', icon: Code2 },
   { id: 'system', title: 'The bigger system', icon: Boxes },
   { id: 'compare', title: 'Comparisons', icon: GitBranch },
   { id: 'research', title: 'Research library', icon: BookOpen },
-];
-const readingForModule: Record<string, string[]> = {
-  'request-flow': ['pagedattention', 'sglang'], scheduler: ['pagedattention', 'dspark', 'dualpath'],
-  overlap: ['dspark', 'deployment-qa'], model: ['v41', 'v4', 'engram', 'mhc'],
-  attention: ['v41', 'v4', 'pagedattention'], cache: ['v41', 'pagedattention', 'dualpath'],
-  yoco: ['v41', 'yoco', 'deployment-qa'], moe: ['deepseek-moe', 'v3', 'deployment-qa'],
-  parallelism: ['deployment-qa', 'dualpath'], speculation: ['dspark', 'dflash', 'v41'],
-  multimodal: ['v41', 'deployment-qa'], sampling: ['sglang', 'dspark'],
-  kernels: ['deployment-qa', 'v41'], validation: ['deployment-qa', 'v41'],
-  'service-boundary': ['deployment-qa', 'dualpath'],
-};
-const stages = [
-  { n: '01', title: 'Request', sub: 'Tokens in', id: 'request-flow' },
-  { n: '02', title: 'Schedule', sub: 'Choose work', id: 'scheduler' },
-  { n: '03', title: 'Execute', sub: 'Run the model', id: 'model' },
-  { n: '04', title: 'Generate', sub: 'Sample & verify', id: 'sampling' },
 ];
 
 function currentRoute() { return window.location.hash.slice(1) || 'overview'; }
@@ -50,7 +40,7 @@ function Sidebar({ route, open, close, openSearch }: { route: string; open: bool
   const [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 760px)').matches);
   useEffect(() => { const media = window.matchMedia('(max-width: 760px)'); const update = () => setNarrow(media.matches); media.addEventListener('change', update); return () => media.removeEventListener('change', update); }, []);
   useEffect(() => { if (!open) return; const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') close(); }; window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey); }, [open, close]);
-  const selected = route.startsWith('module/') ? 'source' : route.startsWith('research/') ? 'research' : route;
+  const selected = route.startsWith('module/') ? 'source' : route.startsWith('research/') ? 'research' : route.startsWith('file/') || route.startsWith('folder/') ? 'codemap' : route.startsWith('execution/') ? 'execution' : route.startsWith('article/') ? 'overview' : route;
   return <><div className={`mobile-scrim ${open ? 'show' : ''}`} onClick={close}></div><aside id="guide-navigation" className={`sidebar ${open ? 'is-open' : ''}`} aria-label="Guide navigation" aria-hidden={narrow && !open ? true : undefined} inert={narrow && !open ? true : undefined}>
     <div className="side-top"><Brand/><button className="icon-button close-menu" onClick={close} aria-label="Close navigation"><X size={20}/></button></div>
     <button className="search-trigger" onClick={() => { close(); openSearch(); }}><Search size={16}/><span>Search the guide</span><kbd>⌘ K</kbd></button>
@@ -63,7 +53,7 @@ function Sidebar({ route, open, close, openSearch }: { route: string; open: bool
   </aside></>;
 }
 function Header({ route, menu, openMenu, openSearch }: { route: string; menu: boolean; openMenu: () => void; openSearch: () => void }) {
-  const title = route.startsWith('module/') ? modules.find(m => m.id === route.split('/')[1])?.title || 'Code tour' : route.startsWith('research/') ? 'Research library' : navItems.find(n => n.id === route)?.title || 'Guide';
+  const title = route.startsWith('module/') ? modules.find(m => m.id === route.split('/')[1])?.title || 'Code tour' : route.startsWith('research/') ? 'Research library' : route.startsWith('file/') || route.startsWith('folder/') ? 'Code map' : route.startsWith('execution/') ? 'Execution paths' : route.startsWith('article/') ? 'Annotated deployment' : navItems.find(n => n.id === route)?.title || 'Guide';
   return <header className="topbar"><button className="icon-button menu-button" onClick={openMenu} aria-label="Open navigation" aria-expanded={menu} aria-controls="guide-navigation"><Menu size={20}/></button><div className="breadcrumbs"><span>DeepInfer explained</span><span className="crumb-sep">/</span><strong>{title}</strong></div><div className="top-actions"><button className="icon-button top-search" onClick={openSearch} aria-label="Search guide"><Search size={18}/></button><LinkOut href="https://github.com/deepseek-ai/DeepInfer" className="repo-link"><GitBranch size={15}/>View repository</LinkOut></div></header>;
 }
 function SearchDialog({ close }: { close: () => void }) {
@@ -73,7 +63,10 @@ function SearchDialog({ close }: { close: () => void }) {
     const pages = navItems.map(n => ({ id: n.id, title: n.title, subtitle: 'Guide', text: n.title }));
     const code = modules.map(m => ({ id: `module/${m.id}`, title: m.title, subtitle: m.category, text: [m.title, m.summary, m.why, ...m.details, ...m.files.map(f => f.path)].join(' ') }));
     const papers = readings.map(r => ({ id: `research/${r.id}`, title: r.title, subtitle: 'Research library', text: [r.title, r.authors, r.description, r.relevance].join(' ') }));
-    return [...pages, ...code, ...papers].filter(x => !term || x.text.toLowerCase().includes(term)).slice(0, 12);
+    const files = term ? sourceEntries.map(file => ({ id: fileRoute(file.path).slice(1), title: file.path, subtitle: file.kind === 'submodule' ? 'Vendor submodule' : file.kind === 'binary' ? 'Binary asset' : 'Source file', text: [file.path, fileNotes[file.path] || folderNotes[file.path] || '', ...(file.symbols || []).map(symbol => symbol.name)].join(' ') })) : [];
+    const gitlinks = new Set(sourceEntries.filter(entry => entry.kind === 'submodule').map(entry => entry.path));
+    const folders = term ? Object.entries(folderNotes).filter(([path]) => !gitlinks.has(path)).map(([path, note]) => ({ id: path === '.' ? 'codemap' : `folder/${encodeURIComponent(path)}`, title: `${path}/`, subtitle: 'Source folder', text: `${path} ${note}` })) : [];
+    return [...pages, ...code, ...papers, ...folders, ...files].filter(x => !term || x.text.toLowerCase().includes(term)).slice(0, 12);
   }, [term]);
   useEffect(() => { const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); }; window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler); }, [close]);
   return <div className="dialog-backdrop" onClick={close}><div className="search-dialog" role="dialog" aria-modal="true" aria-label="Search the guide" onClick={e => e.stopPropagation()}><div className="search-input-wrap"><Search size={20}/><input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="Search components, concepts, papers…" aria-label="Search components, concepts, and papers"/><button className="icon-button" onClick={close} aria-label="Close search"><X size={19}/></button></div><div className="search-results"><div className="search-caption">{term ? `${matches.length} matching results` : 'Explore the guide'}</div>{matches.length ? matches.map((x, i) => <a href={`#${x.id}`} onClick={close} key={`${x.title}-${i}`}><span><strong>{x.title}</strong><small>{x.subtitle}</small></span><ArrowRight size={16}/></a>) : <p className="no-results">No results for “{query}”. Try a component, paper, or source path.</p>}</div><div className="search-footer">Press Esc to close</div></div></div>;
@@ -83,27 +76,15 @@ function SectionHeading({ label, title, description, action }: {label: string; t
 function PageIntro({ section, title, intro }: { section: string; title: string; intro: string }) { return <div className="page-intro"><Eyebrow>{section}</Eyebrow><h1>{title}</h1><p>{intro}</p></div>; }
 function Pill({ children, tone = 'blue' }: { children: React.ReactNode; tone?: string }) { return <span className={`pill ${tone}`}>{children}</span>; }
 
-function Overview() {
-  const [selectedStage, setSelectedStage] = useState(0);
-  const selected = stages[selectedStage];
-  const found = modules.find(m => m.id === selected.id);
-  return <>
-    <section className="hero"><div className="hero-copy"><Eyebrow>A field guide to the inference engine</Eyebrow><h1>From a prompt<br/><span>to a response.</span></h1><p>Follow the code, understand the tradeoffs, and explore the research behind DeepSeek’s inference framework.</p><div className="hero-actions"><a className="button primary" href="#source">Explore the code <ArrowRight size={17}/></a><a className="text-link" href="#system">See the system <ArrowRight size={16}/></a></div><div className="revision-note"><span className="status-dot"/> Mapped to source revision <a href={`https://github.com/deepseek-ai/DeepInfer/commit/${REVISION}`} target="_blank" rel="noreferrer">774ce24</a> · October 20, 2026</div></div><div className="hero-art" aria-hidden="true"><div className="orbit orbit-one"></div><div className="orbit orbit-two"></div><div className="orbit orbit-three"></div><div className="art-core"><span>inference</span><strong>token<br/>by token</strong></div><div className="art-node art-node-a">prefill <span>↗</span></div><div className="art-node art-node-b">decode <span>↗</span></div><div className="art-node art-node-c">cache <span>↗</span></div><div className="art-dots">•••••••••••••••••••</div></div></section>
-    <section className="overview-section"><SectionHeading label="THE 30-SECOND VERSION" title="One engine, two very different jobs." description="A language model processes the prompt, then generates the answer one step at a time. The system is designed around the different bottlenecks in each phase."/><div className="phase-row"><div className="phase"><div className="phase-index">01 / PREFILL</div><h3>Read the prompt</h3><p>Process many input tokens together and create attention state. Big batches make this phase compute-heavy.</p><div className="phase-foot"><span className="tiny-bars"><i/><i/><i/><i/><i/></span> Many input tokens</div></div><div className="phase phase-decode"><div className="phase-index">02 / DECODE</div><h3>Write the response</h3><p>Generate incrementally while reusing that state. Moving model weights and cached context becomes a central cost.</p><div className="phase-foot"><span className="tiny-dots"><i/><i/><i/></span> New tokens, step by step</div></div></div></section>
-    <section className="overview-section"><SectionHeading label="FOLLOW A REQUEST" title="Trace the path through the code." description="Select a stage to see where it lives, then open the annotated chapter."/><div className="flow-panel"><div className="flow-line">{stages.map((stage, i) => <button key={stage.n} className={`flow-stage ${selectedStage === i ? 'selected' : ''}`} onClick={() => setSelectedStage(i)} aria-pressed={selectedStage === i}><span className="stage-number">{stage.n}</span><span className="stage-name">{stage.title}</span><small>{stage.sub}</small></button>)}</div><div className="flow-detail"><div><span className="flow-detail-label">{selected.n} / {selected.title.toUpperCase()}</span><h3>{found?.title || selected.title}</h3><p>{found?.summary || 'Follow the data through the inference engine.'}</p></div><a className="round-arrow" href={`#module/${selected.id}`} aria-label={`Explore ${found?.title || selected.title}`}><ArrowUpRight size={21}/></a></div></div></section>
-    <section className="overview-section"><SectionHeading label="A NOTE ON SCOPE" title="The release is not the whole service."/><div className="scope-grid"><div><div className="scope-icon"><Check size={17}/></div><h3>In the repository</h3><p>Offline inference, model execution, device-side cache primitives, scheduling, parallelism and optimized kernels for DeepSeek-V4.1-Flash.</p><SourceLink path="README.md" line={3}>Read the release scope</SourceLink></div><div><div className="scope-icon light"><CircleHelp size={17}/></div><h3>Described, not released</h3><p>The production deployment also needs a persistent KV cache system, stage disaggregation and replica load balancing. DeepSeek describes these separately.</p><SourceLink path="doc/inference_deployment_qa.md" line={23}>Read the deployment Q&amp;A</SourceLink></div></div></section>
-    <section className="next-band"><div><span>READY TO GO DEEPER?</span><h2>Start with the source.</h2><p>Follow the major components from the Python entry point to the GPU.</p></div><a className="button light-button" href="#source">Open the code tour <ArrowRight size={17}/></a></section>
-  </>;
-}
 function SourceTour() {
   const [filter, setFilter] = useState('All');
   const categories = ['All', ...new Set(modules.map(m => m.category))];
   const filtered = filter === 'All' ? modules : modules.filter(m => m.category === filter);
-  return <><PageIntro section="THE CODE TOUR" title="A map of the machinery." intro="Start anywhere. Each chapter explains what a component does, why it exists, and where to read the implementation at the pinned revision."/><div className="intro-callout"><Code2 size={19}/><p><strong>Read with the source open.</strong> Each chapter links directly to the relevant lines and includes short excerpts with annotations.</p></div><div className="filter-row" aria-label="Filter code chapters">{categories.map(c => <button key={c} className={filter === c ? 'chosen' : ''} onClick={() => setFilter(c)} aria-pressed={filter === c}>{c}</button>)}</div><div className="chapter-list">{filtered.map((m, i) => <a href={`#module/${m.id}`} className="chapter-row" key={m.id}><span className="chapter-num">{String(modules.indexOf(m) + 1).padStart(2, '0')}</span><div className="chapter-main"><div className="chapter-category">{m.category}</div><h3>{m.title}</h3><p>{m.summary}</p></div><div className="chapter-right"><span>{m.files.length} source points</span><ArrowUpRight size={19}/></div><span className="sr-only">Chapter {i + 1}</span></a>)}</div><div className="source-note">The tour covers the major subsystems, not every file or every vendor kernel. Vendor submodules are linked by the upstream repository and were not inspected as part of this snapshot.</div></>;
+  return <><PageIntro section="THE CODE TOUR" title="A map of the machinery." intro="Start anywhere. Each chapter explains what a component does, why it exists, and where to read the implementation at the pinned revision."/><div className="intro-callout"><Code2 size={19}/><p><strong>Read with the source open.</strong> Each chapter links directly to the relevant lines and includes short excerpts with annotations.</p></div><div className="filter-row" aria-label="Filter code chapters">{categories.map(c => <button key={c} className={filter === c ? 'chosen' : ''} onClick={() => setFilter(c)} aria-pressed={filter === c}>{c}</button>)}</div><div className="chapter-list">{filtered.map((m, i) => <a href={`#module/${m.id}`} className="chapter-row" key={m.id}><span className="chapter-num">{String(modules.indexOf(m) + 1).padStart(2, '0')}</span><div className="chapter-main"><div className="chapter-category">{m.category}</div><h3>{m.title}</h3><p>{m.summary}</p></div><div className="chapter-right"><span>{m.files.length} source points</span><ArrowUpRight size={19}/></div><span className="sr-only">Chapter {i + 1}</span></a>)}</div><div className="source-note">The chapters explain major subsystems. The codemap indexes every first-party file and folder; vendor submodules are documented at their integration boundaries.</div></>;
 }
 function FileExcerpt({ file }: { file: SourceFile }) {
   const snippet = snippetMap[`${file.path}:${file.line}`];
-  return <details className="file-card"><summary><span className="file-icon"><FileCode2 size={18}/></span><span className="file-copy"><strong>{file.label}</strong><small>{file.path}:{file.line}</small></span><ChevronDown size={17} className="file-chevron"/></summary><div className="file-body"><p>{file.note}</p>{snippet && <div className="code-wrap"><div className="code-head"><span>Source excerpt</span><SourceLink path={file.path} line={file.line}>Open on GitHub</SourceLink></div><pre><code>{snippet.lines.map((line, index) => <span className="code-line" key={index}><a href={sourceUrl(file.path, snippet.start + index)} target="_blank" rel="noreferrer">{snippet.start + index}</a><span>{line || ' '}</span></span>)}</code></pre></div>}{!snippet && <SourceLink path={file.path} line={file.line}>Open source</SourceLink>}</div></details>;
+  return <details className="file-card"><summary><span className="file-icon"><FileCode2 size={18}/></span><span className="file-copy"><strong>{file.label}</strong><small>{file.path}:{file.line}</small></span><ChevronDown size={17} className="file-chevron"/></summary><div className="file-body"><p>{file.note}</p>{snippet && <div className="code-wrap"><div className="code-head"><span>Source excerpt</span><a href={fileRoute(file.path, file.line)}>Open full annotated file <ArrowUpRight size={14}/></a></div><pre><code>{snippet.lines.map((line, index) => <span className="code-line" key={index}><a href={sourceUrl(file.path, snippet.start + index)} target="_blank" rel="noreferrer">{snippet.start + index}</a><span>{line || ' '}</span></span>)}</code></pre></div>}{!snippet && <SourceLink path={file.path} line={file.line}>Open source</SourceLink>}</div></details>;
 }
 function ModulePage({ item }: { item: Module }) {
   const related = item.related.map(id => modules.find(m => m.id === id)).filter((m): m is Module => Boolean(m));
@@ -134,14 +115,21 @@ function App() {
   useEffect(() => { const onKey = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setSearch(true); } }; window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey); }, []);
   const module = route.startsWith('module/') ? modules.find(m => m.id === route.slice(7)) : undefined;
   let body: React.ReactNode;
+  const decode = (value: string) => { try { return decodeURIComponent(value); } catch { return value; } };
+  const fileParts = route.startsWith('file/') ? route.slice(5).split('/') : [];
+  const line = fileParts[1]?.match(/^L([1-9]\d*)$/)?.[1];
   if (module) body = <ModulePage key={module.id} item={module}/>;
+  else if (route === 'codemap') body = <CodemapPage/>;
+  else if (route.startsWith('folder/')) body = <CodemapPage kind="folder" path={decode(route.slice(7))}/>;
+  else if (route.startsWith('file/')) body = <CodemapPage kind="file" path={decode(fileParts[0])} line={line ? Number(line) : undefined}/>;
+  else if (route === 'execution' || route.startsWith('execution/')) body = <ExecutionGuide target={route.split('/')[1]}/>;
   else if (route === 'source') body = <SourceTour/>;
   else if (route === 'system') body = <SystemPage/>;
   else if (route === 'compare') body = <ComparePage/>;
   else if (route === 'research' || route.startsWith('research/')) body = <ResearchPage key={route} target={route.split('/')[1]}/>;
-  else if (route === 'overview') body = <Overview/>;
+  else if (route === 'overview' || route.startsWith('article/')) body = <ArticleGuide section={route.split('/')[1]} annotation={route.split('/')[2]}/>;
   else body = <div className="not-found"><PageIntro section="NOT FOUND" title="That chapter isn’t here." intro="Return to the code tour to find a component."/><button className="button primary" onClick={() => routeTo('source')}>Explore the code <ArrowRight size={17}/></button></div>;
-  return <div className="app-shell"><Sidebar route={route} open={menu} close={() => setMenu(false)} openSearch={() => setSearch(true)}/><div className="main-shell"><Header route={route} menu={menu} openMenu={() => setMenu(true)} openSearch={() => setSearch(true)}/><main className={`content ${route === 'overview' ? 'overview-content' : ''}`}>{body}<footer className="footer"><span>DeepInfer, explained <span>·</span> An independent field guide <span>·</span> <a href="./DEEPINFER-LICENSE.txt">Source excerpts: Apache 2.0</a></span><a href="https://github.com/deepseek-ai/DeepInfer" target="_blank" rel="noreferrer">Source repository <ArrowDownRight size={14}/></a></footer></main></div>{search && <SearchDialog close={() => setSearch(false)}/>}</div>;
+  return <div className="app-shell"><Sidebar route={route} open={menu} close={() => setMenu(false)} openSearch={() => setSearch(true)}/><div className="main-shell"><Header route={route} menu={menu} openMenu={() => setMenu(true)} openSearch={() => setSearch(true)}/><main className={`content ${route === 'overview' ? 'overview-content' : ''}`}>{body}<footer className="footer"><span>DeepInfer, explained <span>·</span> An independent field guide <span>·</span> <a href="./DEEPINFER-LICENSE.txt">Source: Apache 2.0</a></span><a href="https://github.com/deepseek-ai/DeepInfer" target="_blank" rel="noreferrer">Source repository <ArrowDownRight size={14}/></a></footer></main></div>{search && <SearchDialog close={() => setSearch(false)}/>}</div>;
 }
 
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);

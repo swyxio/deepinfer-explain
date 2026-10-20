@@ -150,6 +150,41 @@ export const readings: Reading[] = [
     relevance: 'Another acknowledged DeepInfer influence and a different hardware focus: TensorRT-LLM targets NVIDIA GPUs, while the released DeepInfer also targets Ascend 950.',
     url: 'https://github.com/NVIDIA/TensorRT-LLM',
   },
+  {
+    id: 'xgrammar', title: 'XGrammar: Flexible and Efficient Structured Generation Engine for Large Language Models',
+    authors: 'Yixin Dong et al.', year: '2024', kind: 'Decoding paper',
+    description: 'Describes grammar-constrained generation using prechecked tokens, runtime matching and persistent stacks.',
+    relevance: 'DeepInfer compiles JSON schema, regex or EBNF with XGrammar and applies matcher-produced masks. Grammar conformance is not a guarantee of semantic correctness.',
+    url: 'https://arxiv.org/abs/2411.15100',
+  },
+  {
+    id: 'flashattention', title: 'FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness',
+    authors: 'Tri Dao et al.', year: '2022', kind: 'Kernel paper',
+    description: 'Uses tiled exact attention to reduce transfers between accelerator memory and on-chip storage.',
+    relevance: 'Useful background for IO-aware attention kernels. V4.1 changes the model and cache with compressed sparse attention; the two ideas address different layers of the problem.',
+    url: 'https://arxiv.org/abs/2205.14135',
+  },
+  {
+    id: 'nanoflow', title: 'NanoFlow: Towards Optimal Large Language Model Serving Throughput',
+    authors: 'Kan Zhu et al.', year: '2025', kind: 'Systems paper',
+    description: 'Splits work into nano-batches to overlap compute, memory and network operations within a device.',
+    relevance: 'The deployment Q&A cites NanoFlow among scheduling precedents. Its intra-device overlap is distinct from DeepInfer’s CPU/device zero-overhead scheduling.',
+    url: 'https://www.usenix.org/conference/osdi25/presentation/zhu-kan',
+  },
+  {
+    id: 'distserve', title: 'DistServe: Disaggregating Prefill and Decoding for Goodput-optimized Large Language Model Serving',
+    authors: 'Yinmin Zhong et al.', year: '2024', kind: 'Systems paper',
+    description: 'Separates prefill and decode onto different GPUs and plans each phase around latency objectives and communication costs.',
+    relevance: 'A comparison for the production article’s stage disaggregation, which is not a complete service in the released DeepInfer checkout.',
+    url: 'https://arxiv.org/abs/2401.09670',
+  },
+  {
+    id: 'qwen35', title: 'Qwen3.5-397B-A17B model card',
+    authors: 'Qwen Team', year: '2026', kind: 'Model report',
+    description: 'Describes a multimodal sparse MoE model with Gated DeltaNet and gated attention layers.',
+    relevance: 'A different long-context architecture from V4.1: hybrid recurrent/attention layers versus V4.1’s compressed sparse attention and causal encoder-decoder. This release does not list Qwen support.',
+    url: 'https://huggingface.co/Qwen/Qwen3.5-397B-A17B',
+  },
 ];
 
 export interface Comparison {
@@ -217,6 +252,30 @@ export const comparisons: Comparison[] = [
     design: 'Combines multi-head latent attention and DeepSeekMoE, with a multi-token prediction objective trained with the backbone.',
     contrast: 'V4.1 uses a different attention and encoder-decoder design and a separately introduced DSpark drafter. V3 is not listed as supported by this release.',
     source: 'https://arxiv.org/abs/2412.19437',
+  },
+  {
+    name: 'Qwen3.5-397B-A17B',
+    category: 'Model',
+    focus: 'Hybrid attention and sparse experts',
+    design: 'Uses a repeating mix of Gated DeltaNet and gated attention layers, each paired with sparse MoE, and a vision encoder.',
+    contrast: 'V4.1 uses a causal encoder-decoder and compressed sparse attention with cache reuse. Qwen3.5 is an architectural comparison, not a model supported by this release.',
+    source: 'https://huggingface.co/Qwen/Qwen3.5-397B-A17B',
+  },
+  {
+    name: 'DistServe',
+    category: 'Serving pattern',
+    focus: 'Disaggregated prefill and decode',
+    design: 'Places prefill and decode on different GPUs and optimizes resources for their latency objectives and communication costs.',
+    contrast: 'DeepSeek describes stage disaggregation in production, but the open repository does not supply the complete integration.',
+    source: 'https://arxiv.org/abs/2401.09670',
+  },
+  {
+    name: 'NanoFlow',
+    category: 'Serving pattern',
+    focus: 'Intra-device overlap',
+    design: 'Splits workloads into nano-batches to overlap compute, memory and communication on a device.',
+    contrast: 'DeepInfer’s zero-overhead path overlaps CPU scheduling and postprocessing with device execution; the two are related but distinct mechanisms.',
+    source: 'https://www.usenix.org/conference/osdi25/presentation/zhu-kan',
   },
   {
     name: 'YOCO',
