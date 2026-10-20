@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, BookOpen, Boxes, ChevronDown, CircleHelp, Code2, ExternalLink, FileCode2, GitBranch, Layers3, Map, Menu, Search, Workflow, X } from 'lucide-react';
+import { ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, BookOpen, Boxes, ChevronDown, CircleHelp, Code2, Cpu, ExternalLink, FileCode2, GitBranch, Layers3, Map, Menu, Search, Workflow, X } from 'lucide-react';
 import { modules, type Module, type SourceFile } from './modules';
 import { comparisons, readings } from './research';
 import snippets from './snippets.json';
@@ -11,6 +11,8 @@ import { readingForModule } from './connections';
 import { requestFlowStages } from './request-flow';
 import { articleSections } from './article-notes';
 import { articleContext, articleReading } from './article-reading';
+import { ModelSupportPage } from './model-support-page';
+import { modelComparisons } from './model-support';
 import './style.css';
 
 const REVISION = '774ce244b87cc0eb8d4b94ab9f5de2ab22049f01';
@@ -21,6 +23,7 @@ const snippetMap = snippets as Record<string, { start: number; lines: string[] }
 const navItems = [
   { id: 'overview', title: 'Annotated deployment', icon: Layers3 },
   { id: 'codemap', title: 'Code map', icon: Map },
+  { id: 'models', title: 'Models & hardware', icon: Cpu },
   { id: 'execution', title: 'Execution paths', icon: Workflow },
   { id: 'source', title: 'Subsystem chapters', icon: Code2 },
   { id: 'system', title: 'The bigger system', icon: Boxes },
@@ -43,7 +46,7 @@ function Sidebar({ route, open, close, openSearch }: { route: string; open: bool
   const [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 760px)').matches);
   useEffect(() => { const media = window.matchMedia('(max-width: 760px)'); const update = () => setNarrow(media.matches); media.addEventListener('change', update); return () => media.removeEventListener('change', update); }, []);
   useEffect(() => { if (!open) return; const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') close(); }; window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey); }, [open, close]);
-  const selected = route.startsWith('module/') ? 'source' : route.startsWith('research/') ? 'research' : route.startsWith('file/') || route.startsWith('folder/') || route.startsWith('codemap/') ? 'codemap' : route.startsWith('execution/') ? 'execution' : route.startsWith('article/') ? 'overview' : route;
+  const selected = route.startsWith('module/') ? 'source' : route.startsWith('research/') ? 'research' : route.startsWith('file/') || route.startsWith('folder/') || route.startsWith('codemap/') ? 'codemap' : route.startsWith('execution/') ? 'execution' : route.startsWith('article/') ? 'overview' : route.startsWith('models/') ? 'models' : route;
   return <><div className={`mobile-scrim ${open ? 'show' : ''}`} onClick={close}></div><aside id="guide-navigation" className={`sidebar ${open ? 'is-open' : ''}`} aria-label="Guide navigation" aria-hidden={narrow && !open ? true : undefined} inert={narrow && !open ? true : undefined}>
     <div className="side-top"><Brand/><button className="icon-button close-menu" onClick={close} aria-label="Close navigation"><X size={20}/></button></div>
     <button className="search-trigger" onClick={() => { close(); openSearch(); }}><Search size={16}/><span>Search the guide</span><kbd>⌘ K</kbd></button>
@@ -56,7 +59,7 @@ function Sidebar({ route, open, close, openSearch }: { route: string; open: bool
   </aside></>;
 }
 function Header({ route, menu, openMenu, openSearch }: { route: string; menu: boolean; openMenu: () => void; openSearch: () => void }) {
-  const title = route.startsWith('module/') ? modules.find(m => m.id === route.split('/')[1])?.title || 'Code tour' : route.startsWith('research/') ? 'Research library' : route.startsWith('file/') || route.startsWith('folder/') || route.startsWith('codemap/') ? 'Code map' : route.startsWith('execution/') ? 'Execution paths' : route.startsWith('article/') ? 'Annotated deployment' : navItems.find(n => n.id === route)?.title || 'Guide';
+  const title = route.startsWith('module/') ? modules.find(m => m.id === route.split('/')[1])?.title || 'Code tour' : route.startsWith('research/') ? 'Research library' : route.startsWith('file/') || route.startsWith('folder/') || route.startsWith('codemap/') ? 'Code map' : route.startsWith('execution/') ? 'Execution paths' : route.startsWith('article/') ? 'Annotated deployment' : route.startsWith('models/') ? 'Models & hardware' : navItems.find(n => n.id === route)?.title || 'Guide';
   return <header className="topbar"><button className="icon-button menu-button" onClick={openMenu} aria-label="Open navigation" aria-expanded={menu} aria-controls="guide-navigation"><Menu size={20}/></button><div className="breadcrumbs"><span>DeepInfer explained</span><span className="crumb-sep">/</span><strong>{title}</strong></div><div className="top-actions"><button className="icon-button top-search" onClick={openSearch} aria-label="Search guide"><Search size={18}/></button><LinkOut href="https://github.com/deepseek-ai/DeepInfer" className="repo-link"><GitBranch size={15}/>View repository</LinkOut></div></header>;
 }
 function SearchDialog({ close }: { close: () => void }) {
@@ -67,6 +70,7 @@ function SearchDialog({ close }: { close: () => void }) {
     const code = modules.map(m => ({ id: `module/${m.id}`, title: m.title, subtitle: m.category, text: [m.title, m.summary, m.why, ...m.details, ...m.files.map(f => f.path)].join(' ') }));
     const papers = readings.map(r => ({ id: `research/${r.id}`, title: r.title, subtitle: 'Research library', text: [r.title, r.authors, r.description, r.relevance].join(' ') }));
     const flow = term ? requestFlowStages.map(stage => ({ id: `codemap/${stage.id}`, title: stage.title, subtitle: 'Request flow', text: [stage.title, stage.phase, stage.summary, stage.detail, ...stage.code.map(source => source.path)].join(' ') })) : [];
+    const models = term ? modelComparisons.map(model => ({ id: `models/${model.id}`, title: model.name, subtitle: model.listed ? 'Listed model' : 'Architecture comparison', text: [model.name, model.family, model.scale, model.architecture, model.attention, model.summary].join(' ') })) : [];
     const article = term ? articleSections.flatMap(section => [
       { id: `article/${section.id}`, title: section.title.replace(/^\d+ \/ /, ''), subtitle: 'Annotated reading', text: [section.title, section.intro, ...(articleReading[section.id]?.opening || [])].join(' ') },
       ...section.annotations.map(note => ({ id: `article/${section.id}/${note.id}`, title: note.title, subtitle: 'Article annotation', text: [note.title, note.explanation, note.status, articleContext[note.id] || ''].join(' ') })),
@@ -74,7 +78,7 @@ function SearchDialog({ close }: { close: () => void }) {
     const files = term ? sourceEntries.map(file => ({ id: fileRoute(file.path).slice(1), title: file.path, subtitle: file.kind === 'submodule' ? 'Vendor submodule' : file.kind === 'binary' ? 'Binary asset' : 'Source file', text: [file.path, fileNotes[file.path] || folderNotes[file.path] || '', ...(file.symbols || []).map(symbol => symbol.name)].join(' ') })) : [];
     const gitlinks = new Set(sourceEntries.filter(entry => entry.kind === 'submodule').map(entry => entry.path));
     const folders = term ? Object.entries(folderNotes).filter(([path]) => !gitlinks.has(path)).map(([path, note]) => ({ id: path === '.' ? 'codemap' : `folder/${encodeURIComponent(path)}`, title: `${path}/`, subtitle: 'Source folder', text: `${path} ${note}` })) : [];
-    return [...pages, ...article, ...flow, ...code, ...papers, ...folders, ...files].filter(x => !term || x.text.toLowerCase().includes(term)).slice(0, 12);
+    return [...pages, ...models, ...article, ...flow, ...code, ...papers, ...folders, ...files].filter(x => !term || x.text.toLowerCase().includes(term)).slice(0, 12);
   }, [term]);
   useEffect(() => { const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); }; window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler); }, [close]);
   return <div className="dialog-backdrop" onClick={close}><div className="search-dialog" role="dialog" aria-modal="true" aria-label="Search the guide" onClick={e => e.stopPropagation()}><div className="search-input-wrap"><Search size={20}/><input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="Search components, concepts, papers…" aria-label="Search components, concepts, and papers"/><button className="icon-button" onClick={close} aria-label="Close search"><X size={19}/></button></div><div className="search-results"><div className="search-caption">{term ? `${matches.length} matching results` : 'Explore the guide'}</div>{matches.length ? matches.map((x, i) => <a href={`#${x.id}`} onClick={close} key={`${x.title}-${i}`}><span><strong>{x.title}</strong><small>{x.subtitle}</small></span><ArrowRight size={16}/></a>) : <p className="no-results">No results for “{query}”. Try a component, paper, or source path.</p>}</div><div className="search-footer">Press Esc to close</div></div></div>;
@@ -119,7 +123,7 @@ function App() {
   const [route, setRoute] = useState(currentRoute);
   const [menu, setMenu] = useState(false);
   const [search, setSearch] = useState(false);
-  useEffect(() => { const update = (event: HashChangeEvent) => { setRoute(currentRoute()); const flowRoute = (url: string) => /^#codemap(?:\/[^/]+)?$/.test(new URL(url).hash); if (!(flowRoute(event.oldURL) && flowRoute(event.newURL))) window.scrollTo(0, 0); }; window.addEventListener('hashchange', update); return () => window.removeEventListener('hashchange', update); }, []);
+  useEffect(() => { const update = (event: HashChangeEvent) => { setRoute(currentRoute()); const sameExplorer = (prefix: string) => [event.oldURL, event.newURL].every(url => new RegExp(`^#${prefix}(?:/[^/]+)?$`).test(new URL(url).hash)); if (!sameExplorer('codemap') && !sameExplorer('models')) window.scrollTo(0, 0); }; window.addEventListener('hashchange', update); return () => window.removeEventListener('hashchange', update); }, []);
   useEffect(() => { const onKey = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setSearch(true); } }; window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey); }, []);
   const module = route.startsWith('module/') ? modules.find(m => m.id === route.slice(7)) : undefined;
   let body: React.ReactNode;
@@ -128,6 +132,7 @@ function App() {
   const line = fileParts[1]?.match(/^L([1-9]\d*)$/)?.[1];
   if (module) body = <ModulePage key={module.id} item={module}/>;
   else if (route === 'codemap' || route.startsWith('codemap/')) body = <CodemapPage flowStep={route.split('/')[1]}/>;
+  else if (route === 'models' || route.startsWith('models/')) body = <ModelSupportPage target={route.split('/')[1]}/>;
   else if (route.startsWith('folder/')) body = <CodemapPage kind="folder" path={decode(route.slice(7))}/>;
   else if (route.startsWith('file/')) body = <CodemapPage kind="file" path={decode(fileParts[0])} line={line ? Number(line) : undefined}/>;
   else if (route === 'execution' || route.startsWith('execution/')) body = <ExecutionGuide target={route.split('/')[1]}/>;

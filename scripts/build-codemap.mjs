@@ -24,11 +24,11 @@ async function loadData(filename) {
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 } }).outputText;
   return import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
 }
-const [{ fileNotes, folderNotes }, { executionPaths }, { modules }, { articleSections }, { kernelSymbolNotes }, { runtimeSymbolNotes }, { supportSymbolNotes }, { additionalSymbolNotes }, { requestFlowStages, requestFlowGroups, requestFlowTransitions }, { readings }] = await Promise.all([
+const [{ fileNotes, folderNotes }, { executionPaths }, { modules }, { articleSections }, { kernelSymbolNotes }, { runtimeSymbolNotes }, { supportSymbolNotes }, { additionalSymbolNotes }, { requestFlowStages, requestFlowGroups, requestFlowTransitions }, { readings }, { coverageRows, modelComparisons, modelSources, modelStageSources }] = await Promise.all([
   loadData('src/file-notes.ts'), loadData('src/execution-paths.ts'), loadData('src/modules.ts'), loadData('src/article-notes.ts'),
   loadData('src/symbol-notes-kernels.ts'), loadData('src/symbol-notes-runtime.ts'), loadData('src/symbol-notes-support.ts'),
   loadData('src/symbol-notes-additional.ts'),
-  loadData('src/request-flow.ts'), loadData('src/research.ts'),
+  loadData('src/request-flow.ts'), loadData('src/research.ts'), loadData('src/model-support.ts'),
 ]);
 const manifest = [];
 const contents = {};
@@ -74,6 +74,12 @@ function verifyAnchor(filename, line, label) {
   const text = contents[filename];
   if (text === undefined || !Number.isInteger(line) || line < 1 || line > text.split('\n').length) throw new Error(`Invalid ${label} anchor: ${filename}:${line}`);
 }
+for (const row of coverageRows) verifyAnchor(row.source.path, row.source.line, `model coverage ${row.feature}`);
+for (const source of [...Object.values(modelSources), ...modelStageSources]) verifyAnchor(source.path, source.line, 'model explorer');
+if (new Set(modelComparisons.map(model => model.id)).size !== modelComparisons.length) throw new Error('Model comparison IDs must be unique.');
+const listedModels = modelComparisons.filter(model => model.listed);
+if (listedModels.length !== 1 || listedModels[0].id !== 'deepseek-v41-flash' || listedModels[0].stages.length !== modelStageSources.length) throw new Error('Model explorer stages must match the listed architecture.');
+for (const model of modelComparisons) new URL(model.gallery);
 const moduleIds = new Set(modules.map(module => module.id));
 const readingIds = new Set(readings.map(reading => reading.id));
 const stageIds = new Set(requestFlowStages.map(stage => stage.id));
@@ -125,4 +131,4 @@ for (const section of articleSections) for (const annotation of section.annotati
 await writeFile('src/source-manifest.json', JSON.stringify(manifest) + '\n');
 await writeFile('public/source-data.json', JSON.stringify(contents) + '\n');
 console.log(`Indexed ${manifest.length} tracked entries: ${Object.keys(contents).length} text files, ${manifest.filter(x => x.kind === 'binary').length} binary assets, ${manifest.filter(x => x.kind === 'submodule').length} submodules.`);
-console.log(`Validated ${firstParty.length} file notes, ${folderPaths.size} folder and vendor notes, ${symbolNoteCount} detailed anchors across ${annotatedFiles.size} files, ${executionPaths.reduce((n, trace) => n + trace.steps.length, 0)} trace anchors, ${requestFlowStages.length} request-flow stages, and article source anchors.`);
+console.log(`Validated ${firstParty.length} file notes, ${folderPaths.size} folder and vendor notes, ${symbolNoteCount} detailed anchors across ${annotatedFiles.size} files, ${executionPaths.reduce((n, trace) => n + trace.steps.length, 0)} trace anchors, ${requestFlowStages.length} request-flow stages, and article and model-support source anchors.`);
