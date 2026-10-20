@@ -1,0 +1,335 @@
+export interface SourceFile {
+  path: string;
+  line: number;
+  label: string;
+  note: string;
+}
+
+export interface Module {
+  id: string;
+  title: string;
+  category: string;
+  summary: string;
+  why: string;
+  details: string[];
+  files: SourceFile[];
+  related: string[];
+}
+
+// Paths and anchors refer to deepseek-ai/DeepInfer at commit 774ce24.
+export const modules: Module[] = [
+  {
+    id: "request-flow",
+    title: "From prompt to tokens",
+    category: "Runtime",
+    summary: "The offline LLM facade converts prompts into sequences, drives repeated engine steps, and returns generated tokens or decoded text.",
+    why: "This is the best place to start: it connects the public API to scheduling, device execution, sampling, and the final response.",
+    details: [
+      "LLM.generate accepts strings or token IDs and optional multimodal data. It queues every input before running the engine, allowing the scheduler to batch work subject to memory limits.",
+      "Each engine step asks the native scheduler for sequence metadata and a batch plan, then calls the worker. Results can be delayed by asynchronous execution, so the loop also flushes in-flight work and clones pooled output objects before the next step releases them.",
+      "The example launches a data-parallel process per rank and reports decoded text, decode perplexity, and accepted draft tokens. It is an offline example, not an HTTP server or the complete production request path.",
+    ],
+    files: [
+      { path: "examples/offline_inference.py", line: 24, label: "Offline example", note: "Configures an LLM, prepares prompts, and calls generate." },
+      { path: "examples/_launch.py", line: 27, label: "Launch ranks", note: "Starts data-parallel processes for the current node." },
+      { path: "deepinfer/entrypoints/llm.py", line: 90, label: "Generate", note: "Queues the input batch and enters the engine loop." },
+      { path: "deepinfer/entrypoints/llm.py", line: 144, label: "Tokenize and enqueue", note: "Converts prompts to int32 IDs and adds individual requests." },
+      { path: "deepinfer/entrypoints/llm.py", line: 168, label: "Collect and flush", note: "Steps or flushes the engine, copies pooled results, and optionally decodes them." },
+      { path: "deepinfer/engine/llm_engine.py", line: 860, label: "Engine step", note: "Obtains a scheduling plan and passes it to model execution." },
+    ],
+    related: ["scheduler", "overlap", "model", "sampling", "multimodal", "service-boundary"],
+  },
+  {
+    id: "scheduler",
+    title: "Batch scheduling and sequence state",
+    category: "Runtime",
+    summary: "A C++ scheduler selects prefill or decode work, manages per-request state, and allocates cache blocks for each iteration.",
+    why: "A fast model alone cannot keep a shared accelerator busy: the scheduler decides which requests fit and how much work to perform at each step.",
+    details: [
+      "A sequence records its input, generation state, cached-token count, scheduling state, and speculative-decoding state. The Python engine passes configuration, process groups, and memory managers to the native scheduler.",
+      "NORMAL mode coordinates prefill versus decode across data-parallel ranks; PROMPT and COMPLETION modes select only their respective phases. In NORMAL mode, periodic group votes balance the preference for synchronized prefill with an eventual opportunity for an isolated rank to prefill.",
+      "Prefill can be chunked to fit token and memory budgets. Decode schedules running sequences and can preempt when blocks are insufficient; later output processing accounts for accepted draft tokens and updates sequence state. Engine stage support is not the same as a complete disaggregated service.",
+    ],
+    files: [
+      { path: "deepinfer/engine/llm_engine.py", line: 307, label: "Construct scheduler", note: "Connects native scheduling to block/state managers, parallel groups, and configuration." },
+      { path: "csrc/engine/sequence.hpp", line: 168, label: "Sequence state", note: "Structures represent request input, generation, cache, and scheduling state." },
+      { path: "csrc/engine/scheduler.hpp", line: 275, label: "Choose step type", note: "Selects prefill or decode, including cross-rank votes in NORMAL mode." },
+      { path: "csrc/engine/scheduler.hpp", line: 347, label: "Prefill scheduling", note: "Selects prompt work while accounting for token and cache budgets." },
+      { path: "csrc/engine/scheduler.hpp", line: 556, label: "Decode scheduling", note: "Selects running sequences and handles block pressure." },
+      { path: "csrc/engine/scheduler.hpp", line: 872, label: "Apply outputs", note: "Updates sequences, including cache accounting after speculative verification." },
+    ],
+    related: ["request-flow", "cache", "overlap", "speculation", "parallelism", "service-boundary"],
+  },
+  {
+    id: "overlap",
+    title: "Zero-overhead scheduling",
+    category: "Runtime",
+    summary: "The worker overlaps CPU-side scheduling and postprocessing with GPU forward and sampling work instead of synchronizing after each decode step.",
+    why: "At low per-step latency, idle gaps between many small decode iterations can waste a significant fraction of device time.",
+    details: [
+      "In the worker's unified step, the current forward is launched, the previous step is postprocessed, and the current sample is launched. Decode postprocessing is deferred to the next iteration when zero-overhead scheduling is enabled; prefill and non-overlapped execution are processed immediately.",
+      "The model runner explicitly forbids device synchronization while launching forward and sampling. CUDA graph replay is selected when available to reduce repeated launch overhead; otherwise it calls the model normally.",
+      "Overlap means the CPU can schedule before the newest confidence values are available. Variable-length verification therefore splits its work: the CPU selects a total budget and a device kernel updates per-request lengths when the fresher values arrive.",
+    ],
+    files: [
+      { path: "deepinfer/worker/worker.py", line: 89, label: "Worker pipeline", note: "Documents and implements forward, previous postprocess, sample, and deferred decode postprocess." },
+      { path: "deepinfer/worker/model_runner.py", line: 308, label: "Launch forward", note: "Uses graph replay or eager execution in a no-synchronization region." },
+      { path: "deepinfer/worker/model_runner.py", line: 337, label: "Launch sampler", note: "Prepares sampling and launches it without a CUDA synchronization." },
+      { path: "deepinfer/worker/cuda_graph_runner.py", line: 69, label: "CUDA graph runner", note: "Captures and replays suitable batch sizes." },
+      { path: "doc/inference_deployment_qa.md", line: 262, label: "Pipeline rationale", note: "DeepSeek describes the timing interaction with confidence scheduling and CPU/GPU overlap." },
+    ],
+    related: ["request-flow", "scheduler", "speculation", "kernels"],
+  },
+  {
+    id: "model",
+    title: "Building and running V4.1",
+    category: "Model",
+    summary: "The native builder assembles checkpoint-configured embeddings, attention/MoE blocks, hyper-connection components, prediction heads, and optional draft heads.",
+    why: "The model graph and inference engine are distinct: this layer explains what each forward pass computes, while the engine decides when and where to run it.",
+    details: [
+      "V41Builder combines the model and per-layer configurations, constructs blocks with optional Engram embeddings, and shares selected index-K projections according to a cross-layer topology. The builder appends the main prediction head and, when configured, DFlash prediction blocks.",
+      "DeepseekModel embeds input IDs, prepares per-forward cross-layer state, iterates over the blocks, and produces normalized hidden states. The output head and sampler turn those states into token choices.",
+      "Hyper-connections mix residual streams around layers; Engram provides n-gram-based embedding lookups where enabled. Their presence in the builder is checkpoint-dependent, so do not assume every possible code path is active for every configuration.",
+    ],
+    files: [
+      { path: "deepinfer/model_executor/model_loader.py", line: 109, label: "Configure and load", note: "Finalizes model configuration and prepares the model for checkpoint loading." },
+      { path: "deepinfer/model_executor/models/v4_modules/builder.py", line: 45, label: "Build a block", note: "Combines attention configuration, MoE, hyper-connections, and optional Engram." },
+      { path: "deepinfer/model_executor/models/v4_modules/builder.py", line: 93, label: "Assemble model", note: "Creates embedding, decoder layers, main head, and optional DFlash heads." },
+      { path: "deepinfer/model_executor/models/deepseek.py", line: 154, label: "Model forward", note: "Embeds tokens, runs layers, carries shared state, and returns hidden states." },
+      { path: "deepinfer/model_executor/models/v4_modules/hc.py", line: 57, label: "Hyper-connections", note: "Implements the residual mixing used around model layers." },
+      { path: "deepinfer/model_executor/models/v4_modules/engram.py", line: 107, label: "Engram", note: "Implements configurable n-gram embeddings and their runtime lookup." },
+    ],
+    related: ["attention", "moe", "yoco", "speculation", "multimodal"],
+  },
+  {
+    id: "attention",
+    title: "Attention, compression, and sparse selection",
+    category: "Model",
+    summary: "V4 attention combines sliding-window history with compressed KV, and may use a learned indexer to choose compressed entries for each query.",
+    why: "Attention cost and KV traffic grow with context. Compressing and selecting history can reduce the amount of memory the model must read at inference time.",
+    details: [
+      "A compressor projects, compresses, and normalizes KV, writes a post-RoPE value to the main cache, and can expose the pre-RoPE value to the indexer. The indexer projects index keys and returns top-k compressed positions for each query.",
+      "The prefill path assembles current and cached sliding-window values with compressed history; the decode path addresses the relevant cache slots and invokes the sparse attention backend. Configurations can share KV, index projections, and candidate indices across layers.",
+      "This is a model-specific attention design, not a claim that every attention mechanism in DeepInfer always performs sparse top-k selection. Actual behavior depends on each layer's checkpoint configuration.",
+    ],
+    files: [
+      { path: "deepinfer/model_executor/models/v4_modules/attn.py", line: 308, label: "Set up compressor and indexer", note: "Creates layer-local components or shared projections according to topology." },
+      { path: "deepinfer/model_executor/models/v4_modules/compress.py", line: 56, label: "KV compressor", note: "Describes compression, normalization, and cache storage." },
+      { path: "deepinfer/model_executor/models/v4_modules/index_attn.py", line: 516, label: "Select compressed history", note: "Projects index keys and returns top-k positions for each query." },
+      { path: "deepinfer/model_executor/models/v4_modules/attn.py", line: 589, label: "Prefill attention", note: "Combines sliding-window and compressed indices for prefill." },
+      { path: "deepinfer/model_executor/models/v4_modules/attn.py", line: 628, label: "Decode attention", note: "Supplies cache slots and metadata to the sparse decode backend." },
+      { path: "deepinfer/model_executor/models/v4_modules/cross_layer.py", line: 22, label: "Cross-layer topology", note: "Defines which layers own or share KV, index modules, and candidate selections." },
+    ],
+    related: ["model", "cache", "yoco", "kernels"],
+  },
+  {
+    id: "cache",
+    title: "In-flight KV and state cache",
+    category: "Memory",
+    summary: "The runtime allocates accelerator memory for paged KV blocks and per-sequence state, with a native manager tracking free and referenced blocks.",
+    why: "Reusing keys and values avoids recomputing the entire context for every generated token, but memory allocation and cache layout bound concurrency.",
+    details: [
+      "CacheEngine computes a model-specific layout, allocates GPU blocks and state buffers, and exposes per-layer views. Blocks hold paged KV; state slots also represent bounded sliding-window and compression state.",
+      "The C++ free list reserves block zero, tracks reference counts, and supports pinning and freeing blocks. The scheduler uses these allocations and can preempt requests when there is insufficient space.",
+      "These in-flight structures are in the open release. They do not constitute the separate, persistent distributed prefix-cache system described in the production Q&A; that storage and its routing integration are not included.",
+    ],
+    files: [
+      { path: "deepinfer/worker/cache_engine.py", line: 206, label: "Cache and state types", note: "Defines layer-specific KV and the per-sequence state block." },
+      { path: "deepinfer/worker/cache_engine.py", line: 309, label: "Lay out per-layer cache", note: "Builds views and ownership mappings from model configuration." },
+      { path: "deepinfer/worker/cache_engine.py", line: 851, label: "Allocate device memory", note: "Calculates cache layout and allocates block and state tensors." },
+      { path: "csrc/engine/block_manager.hpp", line: 27, label: "Block free list", note: "Allocates, pins, and releases reference-counted block IDs." },
+      { path: "doc/inference_deployment_qa.md", line: 129, label: "Production storage tiers", note: "Distinguishes in-flight GPU memory, host SWA state, and persistent 3FS block KV." },
+    ],
+    related: ["scheduler", "attention", "yoco", "service-boundary"],
+  },
+  {
+    id: "yoco",
+    title: "YOCO and bounded replay",
+    category: "Memory",
+    summary: "YOCO consumer layers reuse shared information, and bounded replay can restrict decoder prefill to a short suffix instead of computing every consumer layer over the full prompt.",
+    why: "For long prompts, reducing repeated decoder-side prefill computation can save substantial work while retaining a usable recent sliding-window state.",
+    details: [
+      "The code identifies consumer layers from n_prefill_layer and changes the metadata and query layout at the boundary. In compact mode it retains the necessary query rows while still creating full main/index KV from shared hidden states where needed.",
+      "DeepSeek describes bounded replay as an approximation: a replayed query cannot attend to keys before the replay start. For decoder replay, it describes recomputing the last 128 tokens rather than the much longer history needed for exact reconstruction.",
+      "The README's example uses compact mode and 140 retained tokens, covering the sliding window and maximum backtracking. The included YOCO test compares mask and compact implementations of the truncated computation; it does not establish equivalence with untruncated attention.",
+    ],
+    files: [
+      { path: "deepinfer/model_executor/models/v4_modules/yoco.py", line: 14, label: "Consumer boundary", note: "Determines whether a model has YOCO consumer layers." },
+      { path: "deepinfer/model_executor/models/deepseek.py", line: 190, label: "Switch to consumer view", note: "At prefill boundary, selects compact or mask metadata." },
+      { path: "deepinfer/model_executor/models/v4_modules/yoco.py", line: 55, label: "Compact token rows", note: "Gathers retained queries, including context-parallel redistribution." },
+      { path: "deepinfer/model_executor/models/v4_modules/attn.py", line: 752, label: "Keep full KV path", note: "In compact prefill, full shared hidden can still update main and index KV." },
+      { path: "doc/inference_deployment_qa.md", line: 179, label: "Replay approximation", note: "Explains encoder and decoder bounded replay and its restricted attention window." },
+      { path: "examples/yoco/README.md", line: 1, label: "Equivalence tests", note: "Defines the scope and hardware requirements of mask-versus-compact checks." },
+    ],
+    related: ["model", "attention", "cache", "validation"],
+  },
+  {
+    id: "moe",
+    title: "Mixture of experts and load balancing",
+    category: "Model",
+    summary: "Tokens are routed to selected experts, dispatched across expert-parallel ranks, processed, and combined; redundant expert placements help even out skew.",
+    why: "MoE activates only part of the available expert weights per token, but uneven routing can leave the slowest accelerator determining the latency of the whole batch.",
+    details: [
+      "The gate produces top-k expert IDs and weights. Logical selections are mapped to physical expert replicas, after which the communication buffer dispatches token activations and later combines expert outputs. Shared experts provide a separate path.",
+      "Expert-parallel load balancing collects load information and changes replica placement; shuffle code moves weights to match the new assignment. This is expert-load balancing, not the omitted load balancer that routes requests across independent data-parallel replicas.",
+      "The production Q&A describes more redundancy and a shorter statistics window for prefill than decode. Its reported load-balance ratios and Wide-EP throughput comparison are DeepSeek measurements for specific deployments, not a universal performance guarantee.",
+    ],
+    files: [
+      { path: "deepinfer/model_executor/models/v4_modules/mlp.py", line: 148, label: "MoE runtime", note: "Configures routing, experts, and expert-parallel communication." },
+      { path: "deepinfer/model_executor/models/v4_modules/mlp.py", line: 359, label: "Gate", note: "Computes top-k choices and maps logical experts to physical replicas." },
+      { path: "deepinfer/model_executor/models/v4_modules/mlp.py", line: 461, label: "Dispatch and combine", note: "Moves tokens to experts and gathers their results." },
+      { path: "deepinfer/model_executor/eplb/policy.py", line: 73, label: "Rebalance placement", note: "Computes an expert assignment using measured loads." },
+      { path: "deepinfer/model_executor/eplb/shuffle.py", line: 65, label: "Shuffle expert weights", note: "Moves replicas when the placement changes." },
+      { path: "doc/inference_deployment_qa.md", line: 93, label: "Production EPLB", note: "Describes prefill and decode redundancy and update settings." },
+    ],
+    related: ["model", "parallelism", "kernels", "service-boundary"],
+  },
+  {
+    id: "parallelism",
+    title: "DP, EP, and context parallelism",
+    category: "Distributed",
+    summary: "Separate process groups distribute independent attention work, expert work, and optionally pieces of long contexts across devices.",
+    why: "Each kind of parallelism partitions a different resource: requests, model experts, or context. Their communication and memory costs differ.",
+    details: [
+      "Attention data parallelism runs independent request batches on different ranks. Expert parallelism spreads expert weights and routes activations between ranks. Context parallelism partitions prefill context and gathers data needed for attention.",
+      "The parallel-state module constructs distinct device and CPU process groups; context-parallel buffers and collectives support the prefill path. The example launcher assigns data-parallel ranks to processes across nodes.",
+      "The README lists balanced CP as supported. DeepSeek's production Q&A says its described current deployment does not use CP or TP, and describes small EP/DP for prefill and Wide-EP for decode. Supported code paths and a particular production configuration are different claims.",
+    ],
+    files: [
+      { path: "deepinfer/model_executor/parallel_utils/parallel_state.py", line: 51, label: "Process groups", note: "Creates and exposes DP, CPU DP, CP, EP, and other communication groups." },
+      { path: "deepinfer/model_executor/parallel_utils/cp.py", line: 9, label: "Context collectives", note: "Provides a shared buffer and all-gather operations for CP." },
+      { path: "deepinfer/model_executor/models/v4_modules/attn.py", line: 782, label: "Overlap CP gather", note: "Starts gathering compressor input while query projection runs." },
+      { path: "examples/_launch.py", line: 27, label: "Rank launcher", note: "Partitions data-parallel ranks across nodes and processes." },
+      { path: "doc/inference_deployment_qa.md", line: 45, label: "Production configuration", note: "Lists reported prefill/decode parallelism and says TP/CP are not currently used there." },
+    ],
+    related: ["scheduler", "moe", "attention", "service-boundary"],
+  },
+  {
+    id: "speculation",
+    title: "DSpark and variable verification",
+    category: "Decoding",
+    summary: "Draft tokens are generated ahead and verified by the main model; confidence estimates and a device-throughput curve determine how much draft work to verify.",
+    why: "A single main-model pass can accept multiple tokens, but verifying unlikely drafts consumes work that might be better spent on other requests.",
+    details: [
+      "The builder attaches DFlash prediction blocks when the checkpoint config enables next-token prediction. During forward, selected target-layer features feed the DFlash main cache; sampling and verification decide which proposed tokens survive.",
+      "The variable-length scheduler sorts estimated acceptance rates and chooses a total query budget using a profiled decode curve and observed runtime. Because overlapped scheduling can be one step ahead of fresh confidence, a TileLang path redistributes that budget on device.",
+      "The readable PyTorch reference computes cumulative confidence products, ranks draft positions globally, and assigns one base token plus the positions won by each sequence. DeepSeek's Q&A reports an estimated +5.4% throughput at 60 sequences per rank but −1.5% at 16, illustrating that the tradeoff depends on load.",
+    ],
+    files: [
+      { path: "deepinfer/model_executor/models/v4_modules/builder.py", line: 93, label: "Draft heads", note: "Builds DFlash prediction blocks when next-token prediction is configured." },
+      { path: "deepinfer/model_executor/models/deepseek.py", line: 172, label: "DFlash features", note: "Collects target-layer features and updates the draft model's main cache." },
+      { path: "deepinfer/model_executor/models/mtp/dflash.py", line: 1, label: "Draft model", note: "Implements the DFlash runtime and draft generation." },
+      { path: "csrc/engine/mtp_varlen.hpp", line: 133, label: "Choose verification budget", note: "Uses acceptance estimates and forward/sampler runtime information to schedule draft verification." },
+      { path: "deepinfer/model_executor/layers/tilelang_ops/schedule_mtp_varlen.py", line: 35, label: "Allocation reference", note: "Readable reference for cumulative confidence, stable top-k, and per-sequence query lengths." },
+      { path: "doc/inference_deployment_qa.md", line: 239, label: "Measured tradeoff", note: "DeepSeek reports load-dependent estimates for dynamic versus fixed-five verification." },
+    ],
+    related: ["model", "scheduler", "overlap", "sampling", "validation"],
+  },
+  {
+    id: "multimodal",
+    title: "Vision and multimodal inputs",
+    category: "Model",
+    summary: "The offline engine expands image placeholders, preprocesses image inputs, and joins vision-encoder embeddings with text before the language-model forward pass.",
+    why: "Image requests need aligned token positions, image patches, cache boundaries, and embeddings; treating an image as a single ordinary token would lose that structure.",
+    details: [
+      "MultimodalProcessor resolves the checkpoint processor and image token, starts preprocessing workers, and expands each image placeholder into a sentinel plus the estimated number of image-token positions.",
+      "The vision-language model maps processed segments into tensors, skips fully cached image segments where possible, and uses a vision encoder and aligner to produce embeddings for the language model. The repository includes text-only and image examples.",
+      "DeepSeek describes a production vision-encoder/prefill/decode split with its own image routing. The release has vision components and engine functionality, but does not ship that complete disaggregated serving system.",
+    ],
+    files: [
+      { path: "deepinfer/ve/multimodal_processor.py", line: 29, label: "Multimodal processor", note: "Resolves model processor configuration and starts preprocessing workers." },
+      { path: "deepinfer/ve/multimodal_processor.py", line: 105, label: "Expand image placeholders", note: "Adds image-token spans based on estimated image token counts." },
+      { path: "deepinfer/model_executor/models/deepseek_vl.py", line: 105, label: "Map segments", note: "Transforms image/text segments, accounting for a fully cached prefix." },
+      { path: "deepinfer/model_executor/models/deepseek_vl.py", line: 194, label: "Merge embeddings", note: "Places vision embeddings into the language-model input." },
+      { path: "deepinfer/model_executor/models/vision_encoder/vit.py", line: 168, label: "Vision transformer", note: "Encodes image patches for the vision-language path." },
+      { path: "doc/inference_deployment_qa.md", line: 61, label: "Production VE", note: "Describes a separately deployed vision encoder in the production architecture." },
+    ],
+    related: ["request-flow", "model", "cache", "service-boundary"],
+  },
+  {
+    id: "sampling",
+    title: "Sampling and structured output",
+    category: "Decoding",
+    summary: "The sampler chooses output tokens and verifies drafts; optional grammar constraints restrict the vocabulary to tokens that keep an output valid.",
+    why: "Model logits describe probabilities, not final text. Sampling policy, stop conditions, and grammar state determine the actual output and its permitted format.",
+    details: [
+      "SamplingParams carries per-request choices, including structured-output arguments. The sampler handles logits and speculative verification, while the sequence state records generated tokens and stopping conditions.",
+      "The structured-output implementation uses XGrammar to compile JSON schema, regex, or EBNF constraints. The matcher advances as tokens are accepted, supplies a vocabulary mask, and can roll back when speculative tokens are rejected.",
+      "The README's deterministic recipe requires batch-invariant inference, variable-length MTP disabled, and a fixed per-sequence seed on NVIDIA. A seed alone is not the complete documented configuration.",
+    ],
+    files: [
+      { path: "deepinfer/sampling_params.py", line: 1, label: "Sampling parameters", note: "Defines per-request generation and structured-output options." },
+      { path: "deepinfer/model_executor/layers/sampler.py", line: 114, label: "Sampler forward", note: "Turns model outputs and sampling metadata into tokens." },
+      { path: "deepinfer/model_executor/layers/sampler.py", line: 411, label: "Draft verification", note: "Checks draft tokens during speculative decoding." },
+      { path: "deepinfer/structure_output/compiler.py", line: 14, label: "Grammar compilation", note: "Uses XGrammar to compile supported output constraints." },
+      { path: "deepinfer/structure_output/matcher.py", line: 134, label: "Matcher state", note: "Accepts tokens, produces legal-token masks, and supports rollback." },
+      { path: "examples/_structured_output.py", line: 1, label: "Structured examples", note: "Exercises regex, JSON schema, and EBNF outputs." },
+      { path: "README.md", line: 27, label: "Determinism settings", note: "Documents the required batch-invariance, MTP, and seed settings." },
+    ],
+    related: ["request-flow", "speculation", "scheduler", "validation"],
+  },
+  {
+    id: "kernels",
+    title: "Kernels, graphs, and hardware backends",
+    category: "Execution",
+    summary: "The runtime combines specialized attention, matrix multiplication, expert communication, and TileLang kernels with platform-specific NVIDIA and Ascend support.",
+    why: "The same mathematical model can have very different throughput depending on memory layout, kernel fusion, communication, and launch overhead.",
+    details: [
+      "The README names FlashMLA, DeepGEMM, DeepEP, TileKernels, DeepSelect, and custom TileLang operations. The vendored submodule list also includes Ascend variants for expert communication and matrix operations.",
+      "The attention layer invokes optimized prefill and decode backends; the MoE layer uses expert dispatch and fused or grouped computation. CUDA graph replay can avoid repeated host launches for supported decode shapes.",
+      "Supported targets in this release are NVIDIA SM100 and Huawei Ascend 950, under the documented Linux/toolchain requirements. DeepSeek says its internal FlashMLA decode kernel has an extra SASS optimization absent from the open version and reports a 5–10% kernel difference; this is a vendor comparison, not a local benchmark.",
+    ],
+    files: [
+      { path: "README.md", line: 20, label: "Kernel inventory", note: "Lists named libraries, configuration, and supported hardware." },
+      { path: ".gitmodules", line: 1, label: "Vendor submodules", note: "Identifies source repositories for several GPU and Ascend components." },
+      { path: "deepinfer/model_executor/layers/tilelang_ops/ops.py", line: 1, label: "TileLang operations", note: "In-tree operation bindings support model and runtime kernels." },
+      { path: "deepinfer/platform.py", line: 55, label: "Hardware platforms", note: "Separates GPU and NPU platform behavior." },
+      { path: "deepinfer/worker/cuda_graph_runner.py", line: 69, label: "Graph capture", note: "Captures and replays device execution for suitable shapes." },
+      { path: "doc/inference_deployment_qa.md", line: 233, label: "Kernel caveat", note: "DeepSeek describes differences between open and internal implementations." },
+    ],
+    related: ["attention", "moe", "overlap", "validation"],
+  },
+  {
+    id: "validation",
+    title: "Tests, benchmarks, and evaluation",
+    category: "Evidence",
+    summary: "The repository has offline regression tests, throughput sweeps, YOCO equivalence checks, and separate model-evaluation scripts.",
+    why: "Correctness, model quality, and performance are different questions. A useful benchmark must also disclose the workload and metric being measured.",
+    details: [
+      "Offline inference tests compare decode perplexity against platform/workload baselines; other tests cover sampling, batch invariance, expert balancing, cache operations, and long contexts. Full model checks require the supported accelerator environment and checkpoint.",
+      "The benchmark measures prefill and decode separately, with warmup and selected steady-state intervals. Its reported decode tokens per second assumes full acceptance of all draft tokens; actual accepted-token throughput depends on acceptance and must not be inferred from that number alone.",
+      "The YOCO L1/L2 suite compares mask and compact implementations. The separate evaluation pipeline generates outputs and scores AIME 2026, HLE, and GPQA Diamond as Pass@1; generation and scoring can be repeated independently. Published README plots used 4 SM100 GPUs for prefill and 64 for decode.",
+    ],
+    files: [
+      { path: "tests/models/test_offline_inference.py", line: 1, label: "Offline regression", note: "Exercises model generation and structured output using stored perplexity baselines." },
+      { path: "tests/models/test_batch_invariant.py", line: 1, label: "Batch invariance", note: "Checks consistency across batch compositions on supported hardware." },
+      { path: "examples/README.md", line: 35, label: "Benchmark methodology", note: "Explains workload construction, timing windows, and full-acceptance accounting." },
+      { path: "examples/sweep/run_sweep.sh", line: 1, label: "Performance sweep", note: "Runs a series of benchmark points for Pareto curves." },
+      { path: "examples/yoco/README.md", line: 1, label: "YOCO checks", note: "Compares two truncated implementations at metadata and output levels." },
+      { path: "eval/README.md", line: 1, label: "Quality evaluation", note: "Documents generation and Pass@1 scoring for the included evaluation harness." },
+      { path: "README.md", line: 77, label: "Reported plots", note: "States hardware scale for the published prefill and decode curves." },
+    ],
+    related: ["request-flow", "yoco", "speculation", "kernels"],
+  },
+  {
+    id: "service-boundary",
+    title: "Production architecture and release boundary",
+    category: "Deployment",
+    summary: "DeepSeek describes a production vision/prefill/decode system with external KV storage and routing; this repository releases the offline engine and substantial building blocks, not the whole service.",
+    why: "Conflating an open engine with a complete cluster deployment makes it easy to overstate what a checkout can run or reproduce.",
+    details: [
+      "The README explicitly excludes a KV cache system, VE/prefill/decode disaggregation, and load balancing across data-parallel replicas. Engine stage types and GPU cache operations exist, but production control-plane and storage components are not included.",
+      "The Q&A describes dedicated block-KV storage on 3FS, host-memory SWA state, prefix matching before routing, and asynchronous fetching and swap-in. Its described policy routes requests without prefix affinity because any prefill engine can fetch any stored prefix.",
+      "The production document reports a single cluster serving 155 trillion tokens per day and revenue of US$38 per GPU-hour at valley pricing. These are DeepSeek's stated operating figures, not results established by this repository or an independent measurement.",
+    ],
+    files: [
+      { path: "README.md", line: 3, label: "Release scope", note: "Describes the offline release and supported model." },
+      { path: "README.md", line: 38, label: "Missing service components", note: "Lists the pieces required for a complete inference service." },
+      { path: "deepinfer/engine/llm_engine.py", line: 130, label: "Engine boundary", note: "Says the release does not include an online-serving wrapper." },
+      { path: "doc/inference_deployment_qa.md", line: 17, label: "Production claims", note: "DeepSeek states scale, economics, and the open-source boundary." },
+      { path: "doc/inference_deployment_qa.md", line: 105, label: "Production request balancing", note: "Describes prefill, decode, and vision routing policies." },
+      { path: "doc/inference_deployment_qa.md", line: 129, label: "Production cache system", note: "Describes the storage tiers and their responsibilities." },
+    ],
+    related: ["request-flow", "scheduler", "cache", "moe", "parallelism", "multimodal"],
+  },
+];
