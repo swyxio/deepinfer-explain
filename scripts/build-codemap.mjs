@@ -24,10 +24,11 @@ async function loadData(filename) {
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 } }).outputText;
   return import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
 }
-const [{ fileNotes, folderNotes }, { executionPaths }, { modules }, { articleSections }, { kernelSymbolNotes }, { runtimeSymbolNotes }, { supportSymbolNotes }, { additionalSymbolNotes }] = await Promise.all([
+const [{ fileNotes, folderNotes }, { executionPaths }, { modules }, { articleSections }, { kernelSymbolNotes }, { runtimeSymbolNotes }, { supportSymbolNotes }, { additionalSymbolNotes }, { requestFlowStages, requestFlowGroups, requestFlowTransitions }, { readings }] = await Promise.all([
   loadData('src/file-notes.ts'), loadData('src/execution-paths.ts'), loadData('src/modules.ts'), loadData('src/article-notes.ts'),
   loadData('src/symbol-notes-kernels.ts'), loadData('src/symbol-notes-runtime.ts'), loadData('src/symbol-notes-support.ts'),
   loadData('src/symbol-notes-additional.ts'),
+  loadData('src/request-flow.ts'), loadData('src/research.ts'),
 ]);
 const manifest = [];
 const contents = {};
@@ -74,6 +75,23 @@ function verifyAnchor(filename, line, label) {
   if (text === undefined || !Number.isInteger(line) || line < 1 || line > text.split('\n').length) throw new Error(`Invalid ${label} anchor: ${filename}:${line}`);
 }
 const moduleIds = new Set(modules.map(module => module.id));
+const readingIds = new Set(readings.map(reading => reading.id));
+const stageIds = new Set(requestFlowStages.map(stage => stage.id));
+const groupedStageIds = requestFlowGroups.flat();
+if (stageIds.size !== requestFlowStages.length || groupedStageIds.length !== stageIds.size || new Set(groupedStageIds).size !== stageIds.size || groupedStageIds.some(id => !stageIds.has(id))) throw new Error('Request flow groups must contain every stage exactly once.');
+if (Object.keys(requestFlowTransitions).length !== stageIds.size || Object.keys(requestFlowTransitions).some(id => !stageIds.has(id))) throw new Error('Request flow transitions must be defined for every stage.');
+for (const [index, group] of requestFlowGroups.entries()) for (const id of group) {
+  const depicted = new Set([...(requestFlowGroups[index + 1] || []), ...(id === 'update' ? ['schedule'] : [])]);
+  const linked = new Set(requestFlowTransitions[id].map(transition => transition.id));
+  if (depicted.size !== linked.size || [...depicted].some(target => !linked.has(target))) throw new Error(`Diagram and next links disagree at request flow ${id}`);
+}
+for (const stage of requestFlowStages) {
+  if (!stage.code.length || !stage.research.length) throw new Error(`Request flow stage ${stage.id} needs source and research links.`);
+  for (const link of stage.code) verifyAnchor(link.path, link.line, `request flow ${stage.id}`);
+  for (const id of stage.research) if (!readingIds.has(id)) throw new Error(`Unknown research ${id} in request flow ${stage.id}`);
+  for (const id of stage.chapters) if (!moduleIds.has(id)) throw new Error(`Unknown chapter ${id} in request flow ${stage.id}`);
+  for (const transition of requestFlowTransitions[stage.id]) if (!stageIds.has(transition.id) || !transition.label) throw new Error(`Invalid transition from request flow ${stage.id}`);
+}
 for (const module of modules) for (const file of module.files) verifyAnchor(file.path, file.line, `chapter ${module.id}`);
 let symbolNoteCount = 0;
 const annotatedFiles = new Set();
@@ -107,4 +125,4 @@ for (const section of articleSections) for (const annotation of section.annotati
 await writeFile('src/source-manifest.json', JSON.stringify(manifest) + '\n');
 await writeFile('public/source-data.json', JSON.stringify(contents) + '\n');
 console.log(`Indexed ${manifest.length} tracked entries: ${Object.keys(contents).length} text files, ${manifest.filter(x => x.kind === 'binary').length} binary assets, ${manifest.filter(x => x.kind === 'submodule').length} submodules.`);
-console.log(`Validated ${firstParty.length} file notes, ${folderPaths.size} folder and vendor notes, ${symbolNoteCount} detailed anchors across ${annotatedFiles.size} files, ${executionPaths.reduce((n, trace) => n + trace.steps.length, 0)} trace anchors, and article source anchors.`);
+console.log(`Validated ${firstParty.length} file notes, ${folderPaths.size} folder and vendor notes, ${symbolNoteCount} detailed anchors across ${annotatedFiles.size} files, ${executionPaths.reduce((n, trace) => n + trace.steps.length, 0)} trace anchors, ${requestFlowStages.length} request-flow stages, and article source anchors.`);

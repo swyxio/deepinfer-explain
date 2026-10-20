@@ -10,6 +10,8 @@ import { kernelSymbolNotes } from './symbol-notes-kernels';
 import { runtimeSymbolNotes } from './symbol-notes-runtime';
 import { supportSymbolNotes } from './symbol-notes-support';
 import { additionalSymbolNotes } from './symbol-notes-additional';
+import { requestFlowStages } from './request-flow';
+import { RequestFlowExplorer } from './request-flow-explorer';
 import manifestData from './source-manifest.json';
 import './codemap.css';
 
@@ -130,6 +132,7 @@ function FileView({ path, line }: { path: string; line?: number }) {
   const annotations = [
     ...modules.flatMap(module => module.files.filter(file => file.path === path).map(file => ({ line: file.line, label: file.label, note: file.note, chapter: module.title, href: `#module/${module.id}` }))),
     ...executionPaths.flatMap(trace => trace.steps.filter(step => step.path === path).map(step => ({ line: step.line, label: step.title, note: step.explanation, chapter: trace.title, href: `#execution/${trace.id}` }))),
+    ...requestFlowStages.flatMap(stage => stage.code.filter(source => source.path === path).map(source => ({ line: source.line, label: source.label, note: stage.summary, chapter: 'Request flow', href: `#codemap/${stage.id}` }))),
     ...(symbolNotes[path] || []).map(note => ({ line: note.line, label: note.symbol, note: note.note, chapter: '', href: '' })),
   ];
   const annotatedSymbols = symbolNotes[path] || [];
@@ -142,14 +145,7 @@ function FileView({ path, line }: { path: string; line?: number }) {
   })}</code></pre></div> : <p className="source-state">Loading pinned source…</p>}{(entry.symbols?.length || 0) > 0 && <details className="symbol-list"><summary>Automatically indexed declarations <span>{entry.symbols?.length}</span></summary><p>Extracted declarations; open a line to inspect it in context.</p><div>{entry.symbols?.map((symbol, i) => <a key={`${symbol.line}-${i}`} href={fileRoute(path, symbol.line)}><span>{symbol.kind} <strong>{symbol.name}</strong></span><small>L{symbol.line}</small></a>)}</div></details>}</>}</>;
 }
 
-const mapStages = [
-  { label: '01 / ENTRY', title: 'LLM API', path: 'deepinfer/entrypoints/llm.py', detail: 'Input, tokenization and generation' },
-  { label: '02 / CONTROL', title: 'Engine + scheduler', path: 'deepinfer/engine/llm_engine.py', detail: 'Requests, batches and sequence state' },
-  { label: '03 / EXECUTION', title: 'Workers', path: 'deepinfer/worker', detail: 'Distributed ranks, cache and model runner' },
-  { label: '04 / MODEL', title: 'Model layers', path: 'deepinfer/model_executor/models', detail: 'Attention, experts and sampling' },
-  { label: '05 / DEVICE', title: 'Kernels', path: 'deepinfer/model_executor/layers/tilelang_ops', detail: 'CUDA and Ascend operations' },
-];
-export function CodemapPage({ kind = 'overview', path = '.', line }: { kind?: 'overview' | 'folder' | 'file'; path?: string; line?: number }) {
+export function CodemapPage({ kind = 'overview', path = '.', line, flowStep }: { kind?: 'overview' | 'folder' | 'file'; path?: string; line?: number; flowStep?: string }) {
   const active = kind === 'overview' ? '.' : path;
-  return <><div className="map-intro"><div className="section-label">THE COMPLETE CODEMAP · PINNED TO 774CE24</div><h1>Explore the source.</h1><p>Follow the runtime across the repository, then open any tracked file or folder. The map covers first-party source, tests, examples, configuration and assets; vendor projects are marked at their boundaries.</p><div className="map-intro-links"><a href="#execution">Trace execution paths <ArrowRight size={15}/></a><a href="#source">Read the subsystem chapters <ArrowRight size={15}/></a></div></div>{kind === 'overview' && <div className="architecture-map"><div className="architecture-label">REPOSITORY FLOW · SELECT A COMPONENT</div><div className="architecture-stages">{mapStages.map((stage, index) => <React.Fragment key={stage.title}><a href={stage.path.endsWith('.py') ? fileRoute(stage.path) : folderRoute(stage.path)}><small>{stage.label}</small><strong>{stage.title}</strong><span>{stage.detail}</span></a>{index < mapStages.length - 1 && <ArrowRight size={15} className="architecture-arrow"/>}</React.Fragment>)}</div><p>Conceptual navigation map, not a complete call graph. <a href="#execution">Open the source-traced paths</a> for branches and conditions.</p></div>}<div className="map-layout"><SourceTree active={active}/><article className="map-detail">{kind === 'file' ? <FileView path={path} line={line}/> : <FolderView path={active}/>}</article></div><div className="map-foot"><GitBranch size={14}/> Source snapshot <a href={`https://github.com/deepseek-ai/DeepInfer/commit/${revision}`} target="_blank" rel="noreferrer">774ce24 <ArrowUpRight size={12}/></a><span>·</span><a href="https://deepwiki.com/deepseek-ai/DeepInfer" target="_blank" rel="noreferrer">DeepWiki reference <ArrowDownRight size={12}/></a><span>·</span> The upstream source is authoritative.</div></>;
+  return <><div className="map-intro"><div className="section-label">THE COMPLETE CODEMAP · PINNED TO 774CE24</div><h1>Explore the source.</h1><p>Follow the runtime across the repository, then open any tracked file or folder. The map covers first-party source, tests, examples, configuration and assets; vendor projects are marked at their boundaries.</p><div className="map-intro-links"><a href="#execution">Trace execution paths <ArrowRight size={15}/></a><a href="#source">Read the subsystem chapters <ArrowRight size={15}/></a></div></div>{kind === 'overview' && <RequestFlowExplorer selected={flowStep} sourceRoute={fileRoute}/>}<div className="map-layout"><SourceTree active={active}/><article className="map-detail">{kind === 'file' ? <FileView path={path} line={line}/> : <FolderView path={active}/>}</article></div><div className="map-foot"><GitBranch size={14}/> Source snapshot <a href={`https://github.com/deepseek-ai/DeepInfer/commit/${revision}`} target="_blank" rel="noreferrer">774ce24 <ArrowUpRight size={12}/></a><span>·</span><a href="https://deepwiki.com/deepseek-ai/DeepInfer" target="_blank" rel="noreferrer">DeepWiki reference <ArrowDownRight size={12}/></a><span>·</span> The upstream source is authoritative.</div></>;
 }
