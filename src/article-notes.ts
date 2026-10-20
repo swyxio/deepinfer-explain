@@ -42,7 +42,7 @@ const nanoflow: ArticleLink = { label: 'NanoFlow paper', url: 'https://www.useni
 
 export const articleSource = {
   title: 'DeepSeek V4.1 Flash Large-Scale Inference Deployment Practice',
-  note: 'Latent Space identifies this as an English translation of DeepSeek’s Zhihu article. The article describes the wider production service; DeepInfer’s released code is a subset. Repository links below are pinned to the locally examined revision.',
+  note: 'Latent Space identifies this as an English translation of DeepSeek’s Zhihu article. The reading below is an independent explanation, not a reproduction of that translation. It follows the article’s structure and links to the original, the related Q&A, and the pinned release.',
   links: [article, original, qa(1)],
 };
 

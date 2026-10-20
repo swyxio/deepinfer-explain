@@ -9,6 +9,8 @@ import { fileNotes, folderNotes } from './file-notes';
 import { ArticleGuide, ExecutionGuide } from './guides';
 import { readingForModule } from './connections';
 import { requestFlowStages } from './request-flow';
+import { articleSections } from './article-notes';
+import { articleContext, articleReading } from './article-reading';
 import './style.css';
 
 const REVISION = '774ce244b87cc0eb8d4b94ab9f5de2ab22049f01';
@@ -65,10 +67,14 @@ function SearchDialog({ close }: { close: () => void }) {
     const code = modules.map(m => ({ id: `module/${m.id}`, title: m.title, subtitle: m.category, text: [m.title, m.summary, m.why, ...m.details, ...m.files.map(f => f.path)].join(' ') }));
     const papers = readings.map(r => ({ id: `research/${r.id}`, title: r.title, subtitle: 'Research library', text: [r.title, r.authors, r.description, r.relevance].join(' ') }));
     const flow = term ? requestFlowStages.map(stage => ({ id: `codemap/${stage.id}`, title: stage.title, subtitle: 'Request flow', text: [stage.title, stage.phase, stage.summary, stage.detail, ...stage.code.map(source => source.path)].join(' ') })) : [];
+    const article = term ? articleSections.flatMap(section => [
+      { id: `article/${section.id}`, title: section.title.replace(/^\d+ \/ /, ''), subtitle: 'Annotated reading', text: [section.title, section.intro, ...(articleReading[section.id]?.opening || [])].join(' ') },
+      ...section.annotations.map(note => ({ id: `article/${section.id}/${note.id}`, title: note.title, subtitle: 'Article annotation', text: [note.title, note.explanation, note.status, articleContext[note.id] || ''].join(' ') })),
+    ]) : [];
     const files = term ? sourceEntries.map(file => ({ id: fileRoute(file.path).slice(1), title: file.path, subtitle: file.kind === 'submodule' ? 'Vendor submodule' : file.kind === 'binary' ? 'Binary asset' : 'Source file', text: [file.path, fileNotes[file.path] || folderNotes[file.path] || '', ...(file.symbols || []).map(symbol => symbol.name)].join(' ') })) : [];
     const gitlinks = new Set(sourceEntries.filter(entry => entry.kind === 'submodule').map(entry => entry.path));
     const folders = term ? Object.entries(folderNotes).filter(([path]) => !gitlinks.has(path)).map(([path, note]) => ({ id: path === '.' ? 'codemap' : `folder/${encodeURIComponent(path)}`, title: `${path}/`, subtitle: 'Source folder', text: `${path} ${note}` })) : [];
-    return [...pages, ...flow, ...code, ...papers, ...folders, ...files].filter(x => !term || x.text.toLowerCase().includes(term)).slice(0, 12);
+    return [...pages, ...article, ...flow, ...code, ...papers, ...folders, ...files].filter(x => !term || x.text.toLowerCase().includes(term)).slice(0, 12);
   }, [term]);
   useEffect(() => { const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); }; window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler); }, [close]);
   return <div className="dialog-backdrop" onClick={close}><div className="search-dialog" role="dialog" aria-modal="true" aria-label="Search the guide" onClick={e => e.stopPropagation()}><div className="search-input-wrap"><Search size={20}/><input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="Search components, concepts, papers…" aria-label="Search components, concepts, and papers"/><button className="icon-button" onClick={close} aria-label="Close search"><X size={19}/></button></div><div className="search-results"><div className="search-caption">{term ? `${matches.length} matching results` : 'Explore the guide'}</div>{matches.length ? matches.map((x, i) => <a href={`#${x.id}`} onClick={close} key={`${x.title}-${i}`}><span><strong>{x.title}</strong><small>{x.subtitle}</small></span><ArrowRight size={16}/></a>) : <p className="no-results">No results for “{query}”. Try a component, paper, or source path.</p>}</div><div className="search-footer">Press Esc to close</div></div></div>;

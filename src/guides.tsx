@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowDown, ArrowRight, ArrowUpRight, BookOpen, ChevronDown, Code2, GitBranch, Layers3 } from 'lucide-react';
 import { articleSections, articleSource, type ArticleLink } from './article-notes';
+import { articleReading, articleContext, additionalArticleClaims } from './article-reading';
+import { ArticleDiagram } from './article-diagrams';
 import { executionPaths } from './execution-paths';
 import { modules } from './modules';
 import { fileRoute, loadSources } from './codemap';
@@ -21,8 +23,59 @@ function LinkGroup({ title, items }: { title: string; items: ArticleLink[] }) {
   return <div className="annotation-links"><span>{title}</span>{items.map((item, i) => <EvidenceLink key={`${item.url}-${i}`} item={item}/>)}</div>;
 }
 export function ArticleGuide({ section, annotation }: { section?: string; annotation?: string }) {
-  useEffect(() => { if (!section) return; requestAnimationFrame(() => { const node = document.getElementById(`article-section-${section}`) as HTMLDetailsElement | null; if (node) { node.open = true; (annotation ? document.getElementById(`annotation-${annotation}`) : node)?.scrollIntoView({ block: 'start' }); } }); }, [section, annotation]);
-  return <><section className="article-hero"><div className="article-hero-copy"><div className="article-eyebrow"><span/> AN ANNOTATED READING</div><h1>Inside DeepSeek’s<br/><em>inference system.</em></h1><p>Start with Latent Space’s English translation of DeepSeek’s deployment article. Follow each idea into the released code, related research and other approaches.</p><div className="article-hero-actions"><a href="https://x.com/latentspacepod/status/2112588380416647205" target="_blank" rel="noreferrer" className="button primary">Read the article <ArrowUpRight size={16}/></a><a href="#codemap">Explore the codemap <ArrowRight size={15}/></a></div><div className="article-hero-meta">SOURCE-TRACED AT <a href={`https://github.com/deepseek-ai/DeepInfer/commit/${revision}`} target="_blank" rel="noreferrer">774ce24</a> <span>·</span> NO ACCELERATOR RUN</div></div><div className="article-art" aria-hidden="true"><span className="art-kicker">A READING MAP</span><div className="art-stack"><div><span>01</span> Production architecture</div><div><span>02</span> Runtime & model</div><div><span>03</span> Cache & scheduling</div><div><span>04</span> Research & alternatives</div></div><span className="art-foot">ARTICLE → CODE → CONTEXT</span></div></section><div className="article-source"><BookOpen size={18}/><div><strong>{articleSource.title}</strong><p>{articleSource.note}</p><div>{articleSource.links.map((item, i) => <EvidenceLink item={item} key={`${item.url}-${i}`}/>)}</div></div></div><section className="article-index"><div className="guide-heading"><div><span>THE DEPLOYMENT ARTICLE</span><h2>Read it, section by section.</h2><p>These annotations follow the article’s structure. Expand a section for its claims, implementation boundaries, source links and comparisons.</p></div><small>{articleSections.length} SECTIONS</small></div><div className="article-sections">{articleSections.map((section, sectionIndex) => <details className="article-section" key={section.id} id={`article-section-${section.id}`} open={sectionIndex === 0 || undefined}><summary><span className="article-section-number">{String(sectionIndex + 1).padStart(2, '0')}</span><span className="article-section-title"><strong>{section.title.replace(/^\d+ \/ /, '')}</strong><small>{section.intro}</small></span><span className="article-section-count">{section.annotations.length} notes</span><ChevronDown size={17}/></summary><div className="article-annotations">{section.annotations.map(note => <article className="annotation" key={note.id} id={`annotation-${note.id}`}><div className="annotation-heading"><h3>{note.title}</h3><span>{note.status}</span></div><p>{note.explanation}</p><LinkGroup title="EVIDENCE" items={note.evidence}/><LinkGroup title="IN THE RELEASE" items={note.code}/><LinkGroup title="RESEARCH & COMPARISONS" items={note.related}/></article>)}</div></details>)}</div></section><section className="guide-next"><div><span>CONTINUE INTO THE CODE</span><h2>See how the pieces connect.</h2><p>Open a file, browse its folder, or follow a source-traced execution path.</p></div><div><a href="#codemap"><Layers3 size={16}/> Codemap <ArrowRight size={15}/></a><a href="#execution"><GitBranch size={16}/> Execution paths <ArrowRight size={15}/></a></div></section></>;
+  useEffect(() => {
+    if (!section) return;
+    requestAnimationFrame(() => {
+      const target = document.getElementById(annotation ? `annotation-${annotation}` : `article-section-${section}`);
+      (target || document.getElementById(`article-section-${section}`))?.scrollIntoView({ block: 'start' });
+    });
+  }, [section, annotation]);
+
+  return <>
+    <section className="article-hero reading-hero">
+      <div className="article-hero-copy">
+        <div className="article-eyebrow"><span/> AN ANNOTATED READING</div>
+        <h1>Inside DeepSeek’s<br/><em>inference system.</em></h1>
+        <p>A source-linked guide to the deployment article, from production architecture to the code and research behind each idea.</p>
+        <div className="article-hero-actions">
+          <a href={articleSource.links[0].url} target="_blank" rel="noreferrer" className="button primary">Read the translation <ArrowUpRight size={16}/></a>
+          <a href="#codemap">Explore the codemap <ArrowRight size={15}/></a>
+        </div>
+        <div className="article-hero-meta">SOURCE-TRACED AT <a href={`https://github.com/deepseek-ai/DeepInfer/commit/${revision}`} target="_blank" rel="noreferrer">774ce24</a> <span>·</span> NO ACCELERATOR RUN</div>
+      </div>
+    </section>
+    <div className="article-source"><BookOpen size={18}/><div>
+      <strong>{articleSource.title}</strong><p>{articleSource.note}</p>
+      <div>{articleSource.links.map((item, i) => <EvidenceLink item={item} key={`${item.url}-${i}`}/>)}</div>
+    </div></div>
+    <details className="reading-mobile-toc"><summary>In this reading <ChevronDown size={16}/></summary><nav aria-label="Article contents">{articleSections.map((item, i) => <a key={item.id} href={`#article/${item.id}`}><small>{String(i + 1).padStart(2, '0')}</small>{item.title.replace(/^\d+ \/ /, '')}</a>)}</nav></details>
+    <div className="reading-layout">
+      <article className="article-index">
+        <div className="guide-heading"><div><span>THE DEPLOYMENT ARTICLE</span><h2>A guided reading.</h2><p>Read straight through, follow a highlighted claim, or jump into the source and research beside each idea.</p></div></div>
+        <div className="article-sections">{articleSections.map((item, sectionIndex) => {
+          const reading = articleReading[item.id];
+          return <section className="reading-section" key={item.id} id={`article-section-${item.id}`}>
+            <div className="reading-section-header"><span>{String(sectionIndex + 1).padStart(2, '0')} / {String(articleSections.length).padStart(2, '0')}</span><h2>{item.title.replace(/^\d+ \/ /, '')}</h2><p>{item.intro}</p></div>
+            {reading?.opening.map((paragraph, index) => <p className="reading-prose" key={index}>{paragraph}</p>)}
+            <ArticleDiagram sectionId={item.id}/>
+            <div className="reading-entries">{item.annotations.map(note => <section className="reading-entry" key={note.id} id={`annotation-${note.id}`}>
+              <h3>{note.title} <a className="reading-anchor" aria-label={`Link to ${note.title}`} href={`#article/${item.id}/${note.id}`}>#</a></h3>
+              {articleContext[note.id] && <p className="reading-prose">{articleContext[note.id]}</p>}
+              <p className="reading-prose">{note.explanation}</p>
+              {(reading?.claim.annotationId === note.id || additionalArticleClaims[note.id]) && <aside className="reading-claim"><span>CORE ASSERTION</span><p><mark>{reading?.claim.annotationId === note.id ? reading.claim.text : additionalArticleClaims[note.id]}</mark></p></aside>}
+              <div className="reading-evidence"><div className="reading-evidence-label">ANNOTATION <span>·</span> {note.status}</div>
+                <LinkGroup title="SOURCE" items={note.evidence}/>
+                <LinkGroup title="CODE" items={note.code}/>
+                <LinkGroup title="RESEARCH" items={note.related}/>
+              </div>
+            </section>)}</div>
+          </section>;
+        })}</div>
+      </article>
+      <aside className="reading-toc" aria-label="Article contents"><div><span>IN THIS READING</span>{articleSections.map((item, i) => <a key={item.id} href={`#article/${item.id}`}><small>{String(i + 1).padStart(2, '0')}</small>{item.title.replace(/^\d+ \/ /, '')}</a>)}<a className="reading-toc-source" href={articleSource.links[0].url} target="_blank" rel="noreferrer">Original translation <ArrowUpRight size={12}/></a></div></aside>
+    </div>
+    <section className="guide-next"><div><span>CONTINUE INTO THE CODE</span><h2>See how the pieces connect.</h2><p>Open a file, browse its folder, or follow a source-traced execution path.</p></div><div><a href="#codemap"><Layers3 size={16}/> Codemap <ArrowRight size={15}/></a><a href="#execution"><GitBranch size={16}/> Execution paths <ArrowRight size={15}/></a></div></section>
+  </>;
 }
 
 const questions: Record<string, string> = {
