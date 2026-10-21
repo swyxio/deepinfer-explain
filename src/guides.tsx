@@ -1,15 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowRight, ArrowUpRight, BookOpen, ChevronDown, Code2, GitBranch, Layers3 } from 'lucide-react';
 import { articleSections, articleSource, type ArticleLink } from './article-notes';
-import { articleReading, articleContext, additionalArticleClaims } from './article-reading';
+import { translationSections, translationSectionLines, translationHeadings, translationSubheadings, translationAnnotations, translationHighlights, translationDiagrams } from './translation';
 import { ArticleDiagram } from './article-diagrams';
 import { executionPaths } from './execution-paths';
 import { modules } from './modules';
 import { fileRoute, loadSources } from './codemap';
 import './guides.css';
+import './translation.css';
 
 const revision = '774ce244b87cc0eb8d4b94ab9f5de2ab22049f01';
 const repoPrefix = `https://github.com/deepseek-ai/DeepInfer/blob/${revision}/`;
+const translationNoteById = new Map(articleSections.flatMap(section => section.annotations).map(note => [note.id, note]));
+const translationNoteNumbers = new Map(Object.values(translationAnnotations).flat().map((id, index) => [id, index + 1]));
 function EvidenceLink({ item }: { item: ArticleLink }) {
   if (item.url.startsWith(repoPrefix)) {
     const [path, hash] = item.url.slice(repoPrefix.length).split('#L');
@@ -22,57 +25,162 @@ function LinkGroup({ title, items }: { title: string; items: ArticleLink[] }) {
   if (!items.length) return null;
   return <div className="annotation-links"><span>{title}</span>{items.map((item, i) => <EvidenceLink key={`${item.url}-${i}`} item={item}/>)}</div>;
 }
+function OriginalText({ text, highlights = [], noteTriggers }: { text: string; highlights?: string[]; noteTriggers?: React.ReactNode }) {
+  const segments: { start: number; end: number; kind: 'highlight' | 'link' }[] = [];
+  for (const highlight of highlights) {
+    const start = text.indexOf(highlight);
+    if (start >= 0) segments.push({ start, end: start + highlight.length, kind: 'highlight' });
+  }
+  for (const match of text.matchAll(/https?:\/\/[^\s]+/g)) {
+    const url = match[0].replace(/[.,;:]+$/, '');
+    segments.push({ start: match.index, end: match.index + url.length, kind: 'link' });
+  }
+  segments.sort((a, b) => a.start - b.start);
+  const lastHighlight = segments.filter(segment => segment.kind === 'highlight').at(-1)?.start;
+  let cursor = 0;
+  const parts: React.ReactNode[] = [];
+  for (const segment of segments) {
+    if (segment.start < cursor) continue;
+    parts.push(text.slice(cursor, segment.start));
+    const value = text.slice(segment.start, segment.end);
+    parts.push(segment.kind === 'highlight' ? <mark key={segment.start}>{value}</mark> : <a key={segment.start} href={value} target="_blank" rel="noreferrer">{value}</a>);
+    if (segment.start === lastHighlight) parts.push(noteTriggers);
+    cursor = segment.end;
+  }
+  const tail = text.slice(cursor);
+  const lastWord = lastHighlight === undefined && React.Children.count(noteTriggers) > 0 ? tail.match(/\S+\s*$/) : null;
+  if (lastWord && lastWord[0].trim().length <= 32) {
+    parts.push(tail.slice(0, lastWord.index), <span className="translation-marker-anchor" key="note-anchor">{lastWord[0]}{noteTriggers}</span>);
+  } else {
+    parts.push(tail);
+    if (lastHighlight === undefined) parts.push(noteTriggers);
+  }
+  return <>{parts}</>;
+}
+
+function CacheHitCalculator() {
+  const [length, setLength] = useState(32768);
+  const [available, setAvailable] = useState(16384);
+  const [hasSwa, setHasSwa] = useState(true);
+  const cap = Math.max(0, length - 134);
+  const blockHit = Math.floor(Math.min(cap, available) / 128) * 128;
+  const hit = hasSwa ? blockHit : Math.max(0, blockHit - 128);
+  const number = (value: string) => Math.max(0, Math.floor(Number(value) || 0));
+  return <div className="translation-calculator">
+    <p>Illustrate the article’s hit rule, assuming the available prefix consists of contiguous 128-token blocks.</p>
+    <div className="translation-calculator-inputs">
+      <label>Input tokens <input type="number" min="0" step="128" value={length} onChange={event => setLength(number(event.target.value))}/></label>
+      <label>Available prefix tokens <input type="number" min="0" step="128" value={available} onChange={event => setAvailable(number(event.target.value))}/></label>
+      <label className="translation-check"><input type="checkbox" checked={hasSwa} onChange={event => setHasSwa(event.target.checked)}/> SWA state available</label>
+    </div>
+    <output><strong>{hit.toLocaleString()} tokens reused</strong><span>Block hit: {blockHit.toLocaleString()} · cap: {cap.toLocaleString()}{!hasSwa && blockHit > 0 ? ' · 128-token replay' : ''}</span></output>
+    <small>Illustration only; actual hits depend on cache contents and the implementation.</small>
+  </div>;
+}
+
 export function ArticleGuide({ section, annotation }: { section?: string; annotation?: string }) {
+  const articleRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!section) return;
     requestAnimationFrame(() => {
-      const target = document.getElementById(annotation ? `annotation-${annotation}` : `article-section-${section}`);
+      const target = document.getElementById(annotation ? `annotation-panel-${annotation}` : `article-section-${section}`);
       (target || document.getElementById(`article-section-${section}`))?.scrollIntoView({ block: 'start' });
     });
   }, [section, annotation]);
 
+  useLayoutEffect(() => {
+    const article = articleRef.current;
+    if (!article) return;
+    const notes = Array.from(article.querySelectorAll<HTMLElement>('.translation-note-popover'));
+    const rows = Array.from(article.querySelectorAll<HTMLElement>('.translation-row.has-notes'));
+    let frame = 0;
+    let disposed = false;
+    const positionNotes = () => {
+      article.style.removeProperty('--notes-overflow');
+      rows.forEach(row => row.style.removeProperty('--note-space'));
+      if (window.matchMedia('(max-width: 1120px)').matches) {
+        notes.forEach(note => note.style.removeProperty('--note-top'));
+        return;
+      }
+      let previousBottom = -Infinity;
+      for (const row of rows) {
+        const rowNotes = Array.from(row.querySelectorAll<HTMLElement>('.translation-note-popover'));
+        const firstMarker = document.getElementById(`annotation-${rowNotes[0]?.dataset.annotationId}`);
+        if (!firstMarker) continue;
+        const space = Math.max(0, Math.ceil(previousBottom + 14 - firstMarker.getBoundingClientRect().top));
+        if (space) row.style.setProperty('--note-space', `${space}px`);
+        for (const note of rowNotes) {
+          const marker = document.getElementById(`annotation-${note.dataset.annotationId}`);
+          if (!marker) continue;
+          const top = Math.max(marker.getBoundingClientRect().top, previousBottom + 14);
+          note.style.setProperty('--note-top', `${top - row.getBoundingClientRect().top}px`);
+          previousBottom = top + note.getBoundingClientRect().height;
+        }
+      }
+      const overflow = Math.max(0, Math.ceil(previousBottom - article.getBoundingClientRect().bottom));
+      if (overflow) article.style.setProperty('--notes-overflow', `${overflow}px`);
+    };
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(positionNotes);
+    };
+    positionNotes();
+    const observer = new ResizeObserver(schedule);
+    observer.observe(article);
+    notes.forEach(note => observer.observe(note));
+    window.addEventListener('resize', schedule);
+    document.fonts.ready.then(() => { if (!disposed) schedule(); });
+    return () => { disposed = true; cancelAnimationFrame(frame); observer.disconnect(); window.removeEventListener('resize', schedule); };
+  }, []);
+
   return <>
     <section className="article-hero reading-hero">
       <div className="article-hero-copy">
-        <div className="article-eyebrow"><span/> AN ANNOTATED READING</div>
-        <h1>Inside DeepSeek’s<br/><em>inference system.</em></h1>
-        <p>A source-linked guide to the deployment article, from production architecture to the code and research behind each idea.</p>
+        <div className="article-eyebrow"><span/> AN ANNOTATED TRANSLATION</div>
+        <h1>DeepSeek V4.1 Flash<br/><em>inference deployment.</em></h1>
+        <p>The full supplied translation, with notes, source links and diagrams alongside the original text.</p>
         <div className="article-hero-actions">
-          <a href={articleSource.links[0].url} target="_blank" rel="noreferrer" className="button primary">Read the translation <ArrowUpRight size={16}/></a>
+          <a href={articleSource.links[0].url} target="_blank" rel="noreferrer" className="button primary">View the X article <ArrowUpRight size={16}/></a>
           <a href="#codemap">Explore the codemap <ArrowRight size={15}/></a>
         </div>
-        <div className="article-hero-meta">SOURCE-TRACED AT <a href={`https://github.com/deepseek-ai/DeepInfer/commit/${revision}`} target="_blank" rel="noreferrer">774ce24</a> <span>·</span> NO ACCELERATOR RUN</div>
+        <div className="article-hero-meta">CODE SOURCE-TRACED AT <a href={`https://github.com/deepseek-ai/DeepInfer/commit/${revision}`} target="_blank" rel="noreferrer">774ce24</a> <span>·</span> NO ACCELERATOR RUN</div>
       </div>
     </section>
     <div className="article-source"><BookOpen size={18}/><div>
       <strong>{articleSource.title}</strong><p>{articleSource.note}</p>
       <div>{articleSource.links.map((item, i) => <EvidenceLink item={item} key={`${item.url}-${i}`}/>)}</div>
     </div></div>
-    <details className="reading-mobile-toc"><summary>In this reading <ChevronDown size={16}/></summary><nav aria-label="Article contents">{articleSections.map((item, i) => <a key={item.id} href={`#article/${item.id}`}><small>{String(i + 1).padStart(2, '0')}</small>{item.title.replace(/^\d+ \/ /, '')}</a>)}</nav></details>
-    <div className="reading-layout">
+      <details className="translation-toc"><summary>In this article <ChevronDown size={16}/></summary><nav aria-label="Article contents">{translationSections.map((item, i) => <a key={item.id} href={`#article/${item.id}`}><small>{String(i + 1).padStart(2, '0')}</small>{item.label}</a>)}</nav></details>
+    <div className="reading-layout translation-layout">
       <article className="article-index">
-        <div className="guide-heading"><div><span>THE DEPLOYMENT ARTICLE</span><h2>A guided reading.</h2><p>Read straight through, follow a highlighted claim, or jump into the source and research beside each idea.</p></div></div>
-        <div className="article-sections">{articleSections.map((item, sectionIndex) => {
-          const reading = articleReading[item.id];
-          return <section className="reading-section" key={item.id} id={`article-section-${item.id}`}>
-            <div className="reading-section-header"><span>{String(sectionIndex + 1).padStart(2, '0')} / {String(articleSections.length).padStart(2, '0')}</span><h2>{item.title.replace(/^\d+ \/ /, '')}</h2><p>{item.intro}</p></div>
-            {reading?.opening.map((paragraph, index) => <p className="reading-prose" key={index}>{paragraph}</p>)}
-            <ArticleDiagram sectionId={item.id}/>
-            <div className="reading-entries">{item.annotations.map(note => <section className="reading-entry" key={note.id} id={`annotation-${note.id}`}>
-              <h3>{note.title} <a className="reading-anchor" aria-label={`Link to ${note.title}`} href={`#article/${item.id}/${note.id}`}>#</a></h3>
-              {articleContext[note.id] && <p className="reading-prose">{articleContext[note.id]}</p>}
-              <p className="reading-prose">{note.explanation}</p>
-              {(reading?.claim.annotationId === note.id || additionalArticleClaims[note.id]) && <aside className="reading-claim"><span>CORE ASSERTION</span><p><mark>{reading?.claim.annotationId === note.id ? reading.claim.text : additionalArticleClaims[note.id]}</mark></p></aside>}
-              <div className="reading-evidence"><div className="reading-evidence-label">ANNOTATION <span>·</span> {note.status}</div>
-                <LinkGroup title="SOURCE" items={note.evidence}/>
-                <LinkGroup title="CODE" items={note.code}/>
-                <LinkGroup title="RESEARCH" items={note.related}/>
-              </div>
-            </section>)}</div>
+        <div className="guide-heading"><div><span>THE DEPLOYMENT ARTICLE</span><h2>Read the translation.</h2><p>Highlighted phrases are from the translation. Notes and explainers add our context.</p></div></div>
+        <div className="article-sections" ref={articleRef}>{translationSections.map((item) => {
+          return <section className="translation-section" key={item.id} id={`article-section-${item.id}`}>
+            {translationSectionLines(item.id).map(({ line, text }) => {
+              const notes = (translationAnnotations[line] || []).map(id => translationNoteById.get(id)).filter((note): note is NonNullable<typeof note> => Boolean(note));
+              const noteTriggers = notes.map(note => <a className="translation-note-marker" key={note.id} id={`annotation-${note.id}`} href={`#article/${item.id}/${note.id}`} aria-label={`Annotation ${translationNoteNumbers.get(note.id)}: ${note.title}`}>{translationNoteNumbers.get(note.id)}</a>);
+              const content = <OriginalText text={text} highlights={translationHighlights[line]} noteTriggers={noteTriggers}/>;
+              const diagram = translationDiagrams[line];
+              return <div className={`translation-row ${notes.length ? 'has-notes' : ''}`} key={line}>
+                <div className="translation-body">
+                  {translationHeadings.has(line) ? <h2 className="translation-heading">{content}</h2> : translationSubheadings.has(line) ? <h3 className="translation-subheading">{content}</h3> : text ? <p className="translation-original">{content}</p> : <div className="translation-blank"/>}
+                  {diagram && <details className="translation-extra"><summary>Explore our diagram <ChevronDown size={15}/></summary><ArticleDiagram sectionId={diagram}/></details>}
+                  {line === 73 && <details className="translation-extra"><summary>Try the cache-hit calculator <ChevronDown size={15}/></summary><CacheHitCalculator/></details>}
+                </div>
+                {notes.map(note => <aside className="translation-note-popover" key={note.id} id={`annotation-panel-${note.id}`} data-annotation-id={note.id} aria-labelledby={`annotation-title-${note.id}`}>
+                  <div className="translation-note-header"><span>NOTE {translationNoteNumbers.get(note.id)}</span></div>
+                  <h3 id={`annotation-title-${note.id}`}>{note.title}</h3>
+                  <div className="translation-note-body"><small>{note.status}</small><p>{note.explanation}</p>
+                    <LinkGroup title="SOURCE" items={note.evidence}/><LinkGroup title="CODE" items={note.code}/><LinkGroup title="RESEARCH" items={note.related}/>
+                    <a className="translation-note-link" href={`#article/${item.id}/${note.id}`}>Link to this note <ArrowUpRight size={12}/></a>
+                  </div>
+                </aside>)}
+              </div>;
+            })}
           </section>;
         })}</div>
       </article>
-      <aside className="reading-toc" aria-label="Article contents"><div><span>IN THIS READING</span>{articleSections.map((item, i) => <a key={item.id} href={`#article/${item.id}`}><small>{String(i + 1).padStart(2, '0')}</small>{item.title.replace(/^\d+ \/ /, '')}</a>)}<a className="reading-toc-source" href={articleSource.links[0].url} target="_blank" rel="noreferrer">Original translation <ArrowUpRight size={12}/></a></div></aside>
     </div>
     <section className="guide-next"><div><span>CONTINUE INTO THE CODE</span><h2>See how the pieces connect.</h2><p>Open a file, browse its folder, or follow a source-traced execution path.</p></div><div><a href="#codemap"><Layers3 size={16}/> Codemap <ArrowRight size={15}/></a><a href="#execution"><GitBranch size={16}/> Execution paths <ArrowRight size={15}/></a></div></section>
   </>;

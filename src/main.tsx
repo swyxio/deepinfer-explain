@@ -10,7 +10,7 @@ import { ArticleGuide, ExecutionGuide } from './guides';
 import { readingForModule } from './connections';
 import { requestFlowStages } from './request-flow';
 import { articleSections } from './article-notes';
-import { articleContext, articleReading } from './article-reading';
+import { translationSectionLines } from './translation';
 import { ModelSupportPage } from './model-support-page';
 import { modelComparisons } from './model-support';
 import './style.css';
@@ -72,8 +72,8 @@ function SearchDialog({ close }: { close: () => void }) {
     const flow = term ? requestFlowStages.map(stage => ({ id: `codemap/${stage.id}`, title: stage.title, subtitle: 'Request flow', text: [stage.title, stage.phase, stage.summary, stage.detail, ...stage.code.map(source => source.path)].join(' ') })) : [];
     const models = term ? modelComparisons.map(model => ({ id: `models/${model.id}`, title: model.name, subtitle: model.listed ? 'Listed model' : 'Architecture comparison', text: [model.name, model.family, model.scale, model.architecture, model.attention, model.summary].join(' ') })) : [];
     const article = term ? articleSections.flatMap(section => [
-      { id: `article/${section.id}`, title: section.title.replace(/^\d+ \/ /, ''), subtitle: 'Annotated reading', text: [section.title, section.intro, ...(articleReading[section.id]?.opening || [])].join(' ') },
-      ...section.annotations.map(note => ({ id: `article/${section.id}/${note.id}`, title: note.title, subtitle: 'Article annotation', text: [note.title, note.explanation, note.status, articleContext[note.id] || ''].join(' ') })),
+      { id: `article/${section.id}`, title: section.title.replace(/^\d+ \/ /, ''), subtitle: 'Annotated translation', text: [section.title, section.intro, ...translationSectionLines(section.id).map(line => line.text)].join(' ') },
+      ...section.annotations.map(note => ({ id: `article/${section.id}/${note.id}`, title: note.title, subtitle: 'Article annotation', text: [note.title, note.explanation, note.status].join(' ') })),
     ]) : [];
     const files = term ? sourceEntries.map(file => ({ id: fileRoute(file.path).slice(1), title: file.path, subtitle: file.kind === 'submodule' ? 'Vendor submodule' : file.kind === 'binary' ? 'Binary asset' : 'Source file', text: [file.path, fileNotes[file.path] || folderNotes[file.path] || '', ...(file.symbols || []).map(symbol => symbol.name)].join(' ') })) : [];
     const gitlinks = new Set(sourceEntries.filter(entry => entry.kind === 'submodule').map(entry => entry.path));

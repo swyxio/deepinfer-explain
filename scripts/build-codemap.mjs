@@ -24,11 +24,18 @@ async function loadData(filename) {
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 } }).outputText;
   return import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
 }
-const [{ fileNotes, folderNotes }, { executionPaths }, { modules }, { articleSections }, { kernelSymbolNotes }, { runtimeSymbolNotes }, { supportSymbolNotes }, { additionalSymbolNotes }, { requestFlowStages, requestFlowGroups, requestFlowTransitions }, { readings }, { coverageRows, modelComparisons, modelSources, modelStageSources }] = await Promise.all([
+async function loadTranslation() {
+  const [source, translation] = await Promise.all([readFile('src/translation.ts', 'utf8'), readFile('src/article-translation.txt', 'utf8')]);
+  const prepared = source.replace("import translation from './article-translation.txt?raw';", `const translation = ${JSON.stringify(translation)};`);
+  if (prepared === source) throw new Error('Translation import not found.');
+  const compiled = ts.transpileModule(prepared, { compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 } }).outputText;
+  return import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
+}
+const [{ fileNotes, folderNotes }, { executionPaths }, { modules }, { articleSections }, { kernelSymbolNotes }, { runtimeSymbolNotes }, { supportSymbolNotes }, { additionalSymbolNotes }, { requestFlowStages, requestFlowGroups, requestFlowTransitions }, { readings }, { coverageRows, modelComparisons, modelSources, modelStageSources }, translation] = await Promise.all([
   loadData('src/file-notes.ts'), loadData('src/execution-paths.ts'), loadData('src/modules.ts'), loadData('src/article-notes.ts'),
   loadData('src/symbol-notes-kernels.ts'), loadData('src/symbol-notes-runtime.ts'), loadData('src/symbol-notes-support.ts'),
   loadData('src/symbol-notes-additional.ts'),
-  loadData('src/request-flow.ts'), loadData('src/research.ts'), loadData('src/model-support.ts'),
+  loadData('src/request-flow.ts'), loadData('src/research.ts'), loadData('src/model-support.ts'), loadTranslation(),
 ]);
 const manifest = [];
 const contents = {};
@@ -80,6 +87,15 @@ if (new Set(modelComparisons.map(model => model.id)).size !== modelComparisons.l
 const listedModels = modelComparisons.filter(model => model.listed);
 if (listedModels.length !== 1 || listedModels[0].id !== 'deepseek-v41-flash' || listedModels[0].stages.length !== modelStageSources.length) throw new Error('Model explorer stages must match the listed architecture.');
 for (const model of modelComparisons) new URL(model.gallery);
+const articleLines = translation.translationSections.flatMap(section => translation.translationSectionLines(section.id));
+if (articleLines.map(line => line.text).join('\n') !== await readFile('src/article-translation.txt', 'utf8')) throw new Error('Translation sections do not preserve the supplied text.');
+const articleNoteIds = articleSections.flatMap(section => section.annotations.map(note => note.id));
+const placedArticleNotes = Object.entries(translation.translationAnnotations).flatMap(([line, ids]) => {
+  if (!articleLines.some(item => item.line === Number(line))) throw new Error(`Invalid translation note line ${line}`);
+  return ids;
+});
+if (new Set(placedArticleNotes).size !== placedArticleNotes.length || placedArticleNotes.length !== articleNoteIds.length || placedArticleNotes.some(id => !articleNoteIds.includes(id))) throw new Error('Translation notes must place every annotation exactly once.');
+for (const [line, highlights] of Object.entries(translation.translationHighlights)) for (const highlight of highlights) if (!translation.translationLines[Number(line) - 1]?.includes(highlight)) throw new Error(`Translation highlight missing on line ${line}`);
 const moduleIds = new Set(modules.map(module => module.id));
 const readingIds = new Set(readings.map(reading => reading.id));
 const stageIds = new Set(requestFlowStages.map(stage => stage.id));
@@ -131,4 +147,4 @@ for (const section of articleSections) for (const annotation of section.annotati
 await writeFile('src/source-manifest.json', JSON.stringify(manifest) + '\n');
 await writeFile('public/source-data.json', JSON.stringify(contents) + '\n');
 console.log(`Indexed ${manifest.length} tracked entries: ${Object.keys(contents).length} text files, ${manifest.filter(x => x.kind === 'binary').length} binary assets, ${manifest.filter(x => x.kind === 'submodule').length} submodules.`);
-console.log(`Validated ${firstParty.length} file notes, ${folderPaths.size} folder and vendor notes, ${symbolNoteCount} detailed anchors across ${annotatedFiles.size} files, ${executionPaths.reduce((n, trace) => n + trace.steps.length, 0)} trace anchors, ${requestFlowStages.length} request-flow stages, and article and model-support source anchors.`);
+console.log(`Validated ${firstParty.length} file notes, ${folderPaths.size} folder and vendor notes, ${symbolNoteCount} detailed anchors across ${annotatedFiles.size} files, ${executionPaths.reduce((n, trace) => n + trace.steps.length, 0)} trace anchors, ${requestFlowStages.length} request-flow stages, article and model-support source anchors, and ${placedArticleNotes.length} translation notes.`);
