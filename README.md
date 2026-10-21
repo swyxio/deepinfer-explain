@@ -8,7 +8,7 @@ The models and hardware explorer compares a selection of architectures from [Seb
 
 Five visual stories use playable, step-by-step diagrams to explain cache reuse, disaggregation, bounded replay, speculative verification and scheduling overlap. A curated set of public launch posts provides context; the diagrams are conceptual and link to the source and research behind the claims.
 
-The 3D Blender lab follows a returning request through five connected, silent workshop animations and a zoom-out of the complete system. Each chapter links to the code, research and relevant public conversation; an interactive example explains why repeated prefixes can produce high cache reuse. See [the Blender studies](blender/README.md) for the editable scene files, source links, limitations and rebuild instructions.
+The Blender lab follows a request through the engine with a source-linked execution path, six code excerpts, comparisons with vLLM and SGLang, and five connected animations plus a system overview. The cache chapter traces production prefix matching, 3FS fetch, swap-in and bounded replay. See [the Blender studies](blender/README.md) for the editable scene files and rebuild instructions.
 
 ## Run locally
 
@@ -17,7 +17,7 @@ pnpm install
 pnpm dev
 ```
 
-`pnpm build` produces a static site in `dist/`; `pnpm preview` serves that build. The app and its checked-in source snapshot build without access to the DeepInfer checkout or network APIs (the optional web fonts have system fallbacks). Source text is fetched only when an execution map or file is opened. Pages use path URLs (for example `/codemap` and `/file/deepinfer/engine/llm_engine.py/L881`); old fragment links redirect to their corresponding paths. Chapter and research filters are shareable via query parameters.
+`pnpm build` produces a static site in `dist/`; `pnpm preview` serves that build. The app and its checked-in source snapshot build without access to the DeepInfer checkout or network APIs (the optional web fonts have system fallbacks). Source text is fetched when the Blender lab, an execution map or a file is opened. Pages use path URLs (for example `/codemap` and `/file/deepinfer/engine/llm_engine.py/L881`); old fragment links redirect to their corresponding paths. Chapter and research filters are shareable via query parameters.
 
 ## Deploy
 
