@@ -8,7 +8,7 @@ The models and hardware explorer compares a selection of architectures from [Seb
 
 Five visual stories use playable, step-by-step diagrams to explain cache reuse, disaggregation, bounded replay, speculative verification and scheduling overlap. A curated set of public launch posts provides context; the diagrams are conceptual and link to the source and research behind the claims.
 
-The 3D Blender lab adds five silent, conceptual animations and downloadable editable scene files. See [the Blender studies](blender/README.md) for their source links, limitations and rebuild instructions.
+The 3D Blender lab follows a returning request through five connected, silent workshop animations and a zoom-out of the complete system. Each chapter links to the code, research and relevant public conversation; an interactive example explains why repeated prefixes can produce high cache reuse. See [the Blender studies](blender/README.md) for the editable scene files, source links, limitations and rebuild instructions.
 
 ## Run locally
 
