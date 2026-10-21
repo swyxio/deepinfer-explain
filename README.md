@@ -17,7 +17,11 @@ pnpm install
 pnpm dev
 ```
 
-`pnpm build` produces a static site in `dist/`; `pnpm preview` serves that build. The app and its checked-in source snapshot build without access to the DeepInfer checkout or network APIs (the optional web fonts have system fallbacks). Source text is fetched only when an execution map or file is opened.
+`pnpm build` produces a static site in `dist/`; `pnpm preview` serves that build. The app and its checked-in source snapshot build without access to the DeepInfer checkout or network APIs (the optional web fonts have system fallbacks). Source text is fetched only when an execution map or file is opened. Pages use path URLs (for example `/codemap` and `/file/deepinfer/engine/llm_engine.py/L881`); old fragment links redirect to their corresponding paths. Chapter and research filters are shareable via query parameters.
+
+## Deploy
+
+The production site runs as the `deepinfer-explain` Cloudflare Worker at `inf.latent.space`. After `pnpm build`, run `pnpm exec wrangler deploy` with access to the Latent Space Cloudflare account. `wrangler.jsonc` enables SPA fallback so directly opening or refreshing a nested path serves the app. Builds are currently deployed manually.
 
 ## Update and verify source annotations
 

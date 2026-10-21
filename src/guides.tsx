@@ -1,3 +1,4 @@
+import { Link } from 'react-router';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowRight, ArrowUpRight, BookOpen, ChevronDown, Code2, GitBranch, Layers3 } from 'lucide-react';
 import { articleSections, articleSource, type ArticleLink } from './article-notes';
@@ -17,7 +18,7 @@ function EvidenceLink({ item }: { item: ArticleLink }) {
   if (item.url.startsWith(repoPrefix)) {
     const [path, hash] = item.url.slice(repoPrefix.length).split('#L');
     const line = hash ? Number(hash) : undefined;
-    return <a href={fileRoute(path, line)}>{item.label} <ArrowUpRight size={12}/></a>;
+    return <Link to={fileRoute(path, line)}>{item.label} <ArrowUpRight size={12}/></Link>;
   }
   return <a href={item.url} target="_blank" rel="noreferrer">{item.label} <ArrowUpRight size={12}/></a>;
 }
@@ -142,7 +143,7 @@ export function ArticleGuide({ section, annotation }: { section?: string; annota
         <p>The full supplied translation, with notes, source links and diagrams alongside the original text.</p>
         <div className="article-hero-actions">
           <a href={articleSource.links[0].url} target="_blank" rel="noreferrer" className="button primary">View the X article <ArrowUpRight size={16}/></a>
-          <a href="#codemap">Explore the codemap <ArrowRight size={15}/></a>
+          <Link to="/codemap">Explore the codemap <ArrowRight size={15}/></Link>
         </div>
         <div className="article-hero-meta">CODE SOURCE-TRACED AT <a href={`https://github.com/deepseek-ai/DeepInfer/commit/${revision}`} target="_blank" rel="noreferrer">774ce24</a> <span>·</span> NO ACCELERATOR RUN</div>
       </div>
@@ -151,7 +152,7 @@ export function ArticleGuide({ section, annotation }: { section?: string; annota
       <strong>{articleSource.title}</strong><p>{articleSource.note}</p>
       <div>{articleSource.links.map((item, i) => <EvidenceLink item={item} key={`${item.url}-${i}`}/>)}</div>
     </div></div>
-      <details className="translation-toc"><summary>In this article <ChevronDown size={16}/></summary><nav aria-label="Article contents">{translationSections.map((item, i) => <a key={item.id} href={`#article/${item.id}`}><small>{String(i + 1).padStart(2, '0')}</small>{item.label}</a>)}</nav></details>
+      <details className="translation-toc"><summary>In this article <ChevronDown size={16}/></summary><nav aria-label="Article contents">{translationSections.map((item, i) => <Link key={item.id} to={`/article/${item.id}`}><small>{String(i + 1).padStart(2, '0')}</small>{item.label}</Link>)}</nav></details>
     <div className="reading-layout translation-layout">
       <article className="article-index">
         <div className="guide-heading"><div><span>THE DEPLOYMENT ARTICLE</span><h2>Read the translation.</h2><p>Highlighted phrases are from the translation. Notes and explainers add our context.</p></div></div>
@@ -159,7 +160,7 @@ export function ArticleGuide({ section, annotation }: { section?: string; annota
           return <section className="translation-section" key={item.id} id={`article-section-${item.id}`}>
             {translationSectionLines(item.id).map(({ line, text }) => {
               const notes = (translationAnnotations[line] || []).map(id => translationNoteById.get(id)).filter((note): note is NonNullable<typeof note> => Boolean(note));
-              const noteTriggers = notes.map(note => <a className="translation-note-marker" key={note.id} id={`annotation-${note.id}`} href={`#article/${item.id}/${note.id}`} aria-label={`Annotation ${translationNoteNumbers.get(note.id)}: ${note.title}`}>{translationNoteNumbers.get(note.id)}</a>);
+              const noteTriggers = notes.map(note => <Link className="translation-note-marker" key={note.id} id={`annotation-${note.id}`} to={`/article/${item.id}/${note.id}`} aria-label={`Annotation ${translationNoteNumbers.get(note.id)}: ${note.title}`}>{translationNoteNumbers.get(note.id)}</Link>);
               const content = <OriginalText text={text} highlights={translationHighlights[line]} noteTriggers={noteTriggers}/>;
               const diagram = translationDiagrams[line];
               return <div className={`translation-row ${notes.length ? 'has-notes' : ''}`} key={line}>
@@ -177,7 +178,7 @@ export function ArticleGuide({ section, annotation }: { section?: string; annota
                   <h3 id={`annotation-title-${note.id}`}>{note.title}</h3>
                   <div className="translation-note-body"><small>{note.status}</small><p>{note.explanation}</p>
                     <LinkGroup title="SOURCE" items={note.evidence}/><LinkGroup title="CODE" items={note.code}/><LinkGroup title="RESEARCH" items={note.related}/>
-                    <a className="translation-note-link" href={`#article/${item.id}/${note.id}`}>Link to this note <ArrowUpRight size={12}/></a>
+                    <Link className="translation-note-link" to={`/article/${item.id}/${note.id}`}>Link to this note <ArrowUpRight size={12}/></Link>
                   </div>
                 </aside>)}
               </div>;
@@ -186,7 +187,7 @@ export function ArticleGuide({ section, annotation }: { section?: string; annota
         })}</div>
       </article>
     </div>
-    <section className="guide-next"><div><span>CONTINUE INTO THE CODE</span><h2>See how the pieces connect.</h2><p>Open a file, browse its folder, or follow a source-traced execution path.</p></div><div><a href="#codemap"><Layers3 size={16}/> Codemap <ArrowRight size={15}/></a><a href="#execution"><GitBranch size={16}/> Execution paths <ArrowRight size={15}/></a></div></section>
+    <section className="guide-next"><div><span>CONTINUE INTO THE CODE</span><h2>See how the pieces connect.</h2><p>Open a file, browse its folder, or follow a source-traced execution path.</p></div><div><Link to="/codemap"><Layers3 size={16}/> Codemap <ArrowRight size={15}/></Link><Link to="/execution"><GitBranch size={16}/> Execution paths <ArrowRight size={15}/></Link></div></section>
   </>;
 }
 
@@ -213,5 +214,5 @@ export function ExecutionGuide({ target }: { target?: string }) {
   const [loadError, setLoadError] = useState(false);
   useEffect(() => { let active = true; loadSources().then(data => { if (active) setSources(data); }).catch(() => { if (active) setLoadError(true); }); return () => { active = false; }; }, []);
   useEffect(() => { if (!target) return; requestAnimationFrame(() => { const node = document.getElementById(`trace-${target}`) as HTMLDetailsElement | null; if (node) { node.open = true; node.scrollIntoView({ block: 'start' }); } }); }, [target]);
-  return <><div className="execution-intro"><div className="section-label">FOLLOW THE CODE · 10 SOURCE TRACES</div><h1>What happens when<br/>the engine runs?</h1><p>These are static traces through the pinned release, organized as question-led code maps. Each numbered card points to the actual file and line; conditions explain which branches apply.</p><div className="execution-evidence"><Code2 size={17}/><span><strong>Evidence:</strong> Source inspection, not an accelerator execution trace. Production-only services are labeled separately.</span></div><a href="#codemap">Browse the full source tree <ArrowRight size={15}/></a></div><div className="execution-layout"><article><div className="trace-list">{executionPaths.map((path, pathIndex) => <details className="trace-section" key={path.id} id={`trace-${path.id}`} open={pathIndex === 0 || undefined}><summary><span className="trace-index">{String(pathIndex + 1).padStart(2, '0')}</span><span><strong>{questions[path.id] || path.title}</strong><small>{path.summary}</small></span><ChevronDown size={18}/></summary><div className="trace-body"><div className="trace-motivation"><span>MOTIVATION</span><p>{path.summary}</p></div><div className="trace-conditions"><span>CONDITIONS & BOUNDARIES</span><ul>{path.conditions.map(condition => <li key={condition}>{condition}</li>)}</ul></div><div className="trace-flow-label">CODE MAP · {path.steps.length} SOURCE POINTS</div><div className="trace-steps">{path.steps.map((step, index) => <React.Fragment key={`${step.path}:${step.line}`}><div className="trace-step"><div className="trace-step-heading"><div><span>[{pathIndex + 1}{String.fromCharCode(97 + index)}]</span><h3>{step.title}</h3></div><a href={fileRoute(step.path, step.line)}>Open file <ArrowUpRight size={13}/></a></div><p>{step.explanation}</p><a className="trace-source-path" href={fileRoute(step.path, step.line)}>{step.path}:{step.line} <ArrowUpRight size={12}/></a><CodePreview path={step.path} line={step.line} sources={loadError ? {} : sources}/></div>{index < path.steps.length - 1 && <div className="trace-arrow"><ArrowDown size={15}/></div>}</React.Fragment>)}</div><div className="trace-related"><span>RELATED CHAPTERS</span><div>{path.related.map(id => modules.find(module => module.id === id)).filter((item): item is typeof modules[number] => Boolean(item)).map(item => <a href={`#module/${item.id}`} key={item.id}>{item.title} <ArrowUpRight size={12}/></a>)}</div></div></div></details>)}</div></article><aside className="execution-aside"><div><span>ON THIS PAGE</span>{executionPaths.map((path, i) => <button key={path.id} onClick={() => { const node = document.getElementById(`trace-${path.id}`) as HTMLDetailsElement | null; if (node) { node.open = true; node.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }}>{String(i + 1).padStart(2, '0')} {path.title}</button>)}</div></aside></div></>;
+  return <><div className="execution-intro"><div className="section-label">FOLLOW THE CODE · 10 SOURCE TRACES</div><h1>What happens when<br/>the engine runs?</h1><p>These are static traces through the pinned release, organized as question-led code maps. Each numbered card points to the actual file and line; conditions explain which branches apply.</p><div className="execution-evidence"><Code2 size={17}/><span><strong>Evidence:</strong> Source inspection, not an accelerator execution trace. Production-only services are labeled separately.</span></div><Link to="/codemap">Browse the full source tree <ArrowRight size={15}/></Link></div><div className="execution-layout"><article><div className="trace-list">{executionPaths.map((path, pathIndex) => <details className="trace-section" key={path.id} id={`trace-${path.id}`} open={pathIndex === 0 || undefined}><summary><span className="trace-index">{String(pathIndex + 1).padStart(2, '0')}</span><span><strong>{questions[path.id] || path.title}</strong><small>{path.summary}</small></span><ChevronDown size={18}/></summary><div className="trace-body"><div className="trace-motivation"><span>MOTIVATION</span><p>{path.summary}</p></div><div className="trace-conditions"><span>CONDITIONS & BOUNDARIES</span><ul>{path.conditions.map(condition => <li key={condition}>{condition}</li>)}</ul></div><div className="trace-flow-label">CODE MAP · {path.steps.length} SOURCE POINTS</div><div className="trace-steps">{path.steps.map((step, index) => <React.Fragment key={`${step.path}:${step.line}`}><div className="trace-step"><div className="trace-step-heading"><div><span>[{pathIndex + 1}{String.fromCharCode(97 + index)}]</span><h3>{step.title}</h3></div><Link to={fileRoute(step.path, step.line)}>Open file <ArrowUpRight size={13}/></Link></div><p>{step.explanation}</p><Link className="trace-source-path" to={fileRoute(step.path, step.line)}>{step.path}:{step.line} <ArrowUpRight size={12}/></Link><CodePreview path={step.path} line={step.line} sources={loadError ? {} : sources}/></div>{index < path.steps.length - 1 && <div className="trace-arrow"><ArrowDown size={15}/></div>}</React.Fragment>)}</div><div className="trace-related"><span>RELATED CHAPTERS</span><div>{path.related.map(id => modules.find(module => module.id === id)).filter((item): item is typeof modules[number] => Boolean(item)).map(item => <Link to={`/module/${item.id}`} key={item.id}>{item.title} <ArrowUpRight size={12}/></Link>)}</div></div></div></details>)}</div></article><aside className="execution-aside"><div><span>ON THIS PAGE</span>{executionPaths.map((path, i) => <button key={path.id} onClick={() => { const node = document.getElementById(`trace-${path.id}`) as HTMLDetailsElement | null; if (node) { node.open = true; node.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }}>{String(i + 1).padStart(2, '0')} {path.title}</button>)}</div></aside></div></>;
 }

@@ -20,7 +20,13 @@ for (const line of submoduleConfig.trim().split('\n')) {
 }
 const submoduleUrls = new Map([...submodulePairs.values()].map(pair => [pair.path, pair.url]));
 async function loadData(filename) {
-  const source = await readFile(filename, 'utf8');
+  let source = await readFile(filename, 'utf8');
+  if (source.includes("from './routes'")) {
+    const routes = await readFile('src/routes.ts', 'utf8');
+    const compiledRoutes = ts.transpileModule(routes, { compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 } }).outputText;
+    const routesUrl = `data:text/javascript;base64,${Buffer.from(compiledRoutes).toString('base64')}`;
+    source = source.replace("from './routes'", `from '${routesUrl}'`);
+  }
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 } }).outputText;
   return import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
 }
@@ -105,10 +111,10 @@ if (visualStories.length !== 5 || new Set(visualStories.map(story => story.id)).
 for (const story of visualStories) {
   if (story.stages.length !== 4) throw new Error(`Visual story ${story.id} must have four stages.`);
   for (const link of story.links) {
-    const parts = link.href.split('/');
-    if (parts[0] === '#file' && parts.length === 3) verifyAnchor(decodeURIComponent(parts[1]), Number(parts[2].slice(1)), `visual story ${story.id}`);
-    else if (parts[0] === '#research' && parts.length === 2 && readingIds.has(parts[1])) continue;
-    else if (parts[0] === '#article' && parts.length === 3 && articleSections.some(section => section.id === parts[1] && section.annotations.some(note => note.id === parts[2]))) continue;
+    const parts = link.href.split('/').filter(Boolean);
+    if (parts[0] === 'file' && parts.length >= 3 && /^L[1-9]\d*$/.test(parts.at(-1))) verifyAnchor(decodeURIComponent(parts.slice(1, -1).join('/')), Number(parts.at(-1).slice(1)), `visual story ${story.id}`);
+    else if (parts[0] === 'research' && parts.length === 2 && readingIds.has(parts[1])) continue;
+    else if (parts[0] === 'article' && parts.length === 3 && articleSections.some(section => section.id === parts[1] && section.annotations.some(note => note.id === parts[2]))) continue;
     else throw new Error(`Invalid visual story link ${story.id}: ${link.href}`);
   }
 }

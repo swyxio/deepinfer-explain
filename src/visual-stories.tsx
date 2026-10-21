@@ -1,3 +1,4 @@
+import { Link } from 'react-router';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, ArrowUpRight, BookOpen, Code2, Pause, Play, RotateCcw } from 'lucide-react';
 import { visualStories, type VisualStory } from './visual-stories-data';
@@ -97,16 +98,16 @@ function Story({ story, index }: { story: VisualStory; index: number }) {
       <div className="visual-steps" aria-label={`${story.title} animation steps`}>{story.stages.map((stage, i) => <button key={stage.label} type="button" className={i === step ? 'current' : ''} aria-current={i === step ? 'step' : undefined} onClick={() => jump(i)}><span>{String(i + 1).padStart(2, '0')}</span>{stage.label}</button>)}</div>
       <div className="visual-caption"><div aria-live="polite"><strong>{story.stages[step].label}</strong><p>{story.stages[step].caption}</p></div><div className="visual-controls"><button type="button" className="vs-control-icon" onClick={() => jump(Math.max(0, step - 1))} disabled={step === 0} aria-label={`Previous step in ${story.title}`}><ArrowLeft size={15}/></button><button type="button" className="vs-control-icon" onClick={() => jump(Math.min(story.stages.length - 1, step + 1))} disabled={step === story.stages.length - 1} aria-label={`Next step in ${story.title}`}><ArrowRight size={15}/></button></div></div>
     </div>
-    <div className="visual-story-notes"><p><strong>Why it matters.</strong> {story.why}</p><p><strong>Keep the boundary in mind.</strong> {story.boundary}</p><div className="visual-evidence"><span>EXPLORE THE EVIDENCE</span>{story.links.map(link => <a href={link.href} key={`${link.href}-${link.label}`}>{link.kind === 'code' ? <Code2 size={14}/> : <BookOpen size={14}/>} {link.label} <ArrowUpRight size={12}/></a>)}</div></div>
+    <div className="visual-story-notes"><p><strong>Why it matters.</strong> {story.why}</p><p><strong>Keep the boundary in mind.</strong> {story.boundary}</p><div className="visual-evidence"><span>EXPLORE THE EVIDENCE</span>{story.links.map(link => <Link to={link.href} key={`${link.href}-${link.label}`}>{link.kind === 'code' ? <Code2 size={14}/> : <BookOpen size={14}/>} {link.label} <ArrowUpRight size={12}/></Link>)}</div></div>
   </article>;
 }
 
 export function VisualStoriesPage({ target }: { target?: string }) {
   useEffect(() => { if (target) requestAnimationFrame(() => document.getElementById(`visual-${target}`)?.scrollIntoView({ block: 'start' })); }, [target]);
   return <div className="visuals-page"><header className="visuals-intro"><div className="visual-kicker">FIVE IDEAS · EXPLAINED IN MOTION</div><h1>DeepInfer, in motion.</h1><p>The launch conversation pointed to a bigger story than a list of kernels. Here are five ideas worth understanding, with animations that connect the production design to the released code.</p><div className="visuals-intro-note">A curated selection from public X posts on October 20, 2026—not a popularity ranking. Diagrams are conceptual and the production figures are DeepSeek’s claims.</div></header>
-    <nav className="visuals-index" aria-label="Jump to a visual explanation">{visualStories.map((story, i) => <a href={`#visuals/${story.id}`} key={story.id}><span>{String(i + 1).padStart(2, '0')}</span><strong>{story.title}</strong><ArrowRight size={15}/></a>)}</nav>
+    <nav className="visuals-index" aria-label="Jump to a visual explanation">{visualStories.map((story, i) => <Link to={`/visuals/${story.id}`} key={story.id}><span>{String(i + 1).padStart(2, '0')}</span><strong>{story.title}</strong><ArrowRight size={15}/></Link>)}</nav>
     <section className="conversation-panel"><div><div className="visual-kicker">WHAT PEOPLE WERE TALKING ABOUT</div><h2>Start with the conversation.</h2><p>These posts informed our selection; the explanations below are checked against DeepSeek’s own Q&amp;A and source rather than treating commentary as proof.</p></div><div className="conversation-links">{conversation.map(post => <a href={post.url} target="_blank" rel="noreferrer" key={post.author}><span><strong>{post.author}</strong><small>{post.text}</small></span><ArrowUpRight size={15}/></a>)}</div></section>
     <div className="visuals-stories">{visualStories.map((story, index) => <Story story={story} index={index} key={story.id}/>)}</div>
-    <div className="visuals-end"><strong>Want the full execution path?</strong><p>Move from these simplified ideas into the annotated source and request-flow map.</p><a href="#codemap">Explore the code map <ArrowRight size={15}/></a></div>
+    <div className="visuals-end"><strong>Want the full execution path?</strong><p>Move from these simplified ideas into the annotated source and request-flow map.</p><Link to="/codemap">Explore the code map <ArrowRight size={15}/></Link></div>
   </div>;
 }
