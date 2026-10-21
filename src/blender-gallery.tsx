@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { ArrowRight, ArrowUpRight, Download, FileCode2, MessageCircle } from 'lucide-react';
 import { blenderScenes, type StoryLink } from './blender-story';
 import { ModuleAnimation, type PeerSample } from './module-animation';
+import { DsparkStudy } from './dspark-study';
 import { fileRoute } from './routes';
 import './blender-gallery.css';
 
@@ -76,14 +77,14 @@ export function BlenderGallery({ target }: { target?: string }) {
       <div className="blender-eyebrow">DEEPINFER · A VISUAL SYSTEMS EXPLAINER</div>
       <h1>Inside DeepInfer’s inference system.</h1>
       <p>DeepSeek reports an average input cache-hit rate of 96% in its production table, a roughly 100 PiB shared 3FS store, and retention of roughly 3 days for agents and 7 days for chat. <Link to="/article/goals/production-table">Performance table</Link> · <Link to={fileRoute('doc/inference_deployment_qa.md', 151)}>Storage design</Link></p>
-      <p>Play or step through cache, replay, expert placement, speculative verification and scheduling. Each animation follows the source and compares the corresponding path in vLLM or SGLang.</p>
-      <a className="blender-download-all" href={asset('workshop-scenes', 'zip')} download><Download size={15}/> Download the six Blender files</a>
+      <p>Explore cache, replay, expert placement, speculative verification and scheduling. The DSpark chapter includes a new diagram-led visual study; each chapter links to code and comparisons.</p>
+      <a className="blender-download-all" href={asset('workshop-scenes', 'zip')} download><Download size={15}/> Download the original six Blender files</a>
     </header>
 
     <RequestPath/>
 
     <details className="workshop-film">
-      <summary><span>Watch the complete walkthrough</span><small>~2 MIN · SILENT</small></summary>
+      <summary><span>Watch the original six-part walkthrough</span><small>~2 MIN · SILENT</small></summary>
       <video controls preload="none" playsInline poster={asset('story-cache', 'jpg')} aria-label="The complete silent DeepInfer workshop animation">
         <source src={asset('story-full', 'mp4')} type="video/mp4"/>Your browser does not support embedded video. <a href={asset('story-full', 'mp4')}>Download the animation</a>.
       </video>
@@ -108,7 +109,7 @@ export function BlenderGallery({ target }: { target?: string }) {
           <div className="blender-note">{scene.context}</div>
           <div className="scene-implementation"><span>IN THE CODE</span><Evidence link={scene.implementation}/></div>
         </div>
-        <ModuleAnimation sceneId={scene.id} title={scene.title} sources={sources} sourceError={sourceError} peers={peers} peerError={peerError}/>
+        {scene.id === 'story-dspark' ? <DsparkStudy sources={sources} sourceError={sourceError} peers={peers} peerError={peerError}/> : <ModuleAnimation sceneId={scene.id} title={scene.title} sources={sources} sourceError={sourceError} peers={peers} peerError={peerError}/>}
         <div className="workshop-detail-grid">
           <div className="workshop-explanation"><div className="blender-copy-label">HOW IT WORKS</div>{scene.explanation.map(paragraph => <p key={paragraph.text}>{paragraph.text} <span className="inline-sources">{paragraph.sources.map(link => <Evidence key={link.href} link={link}/>)}</span></p>)}</div>
           <aside className="workshop-conversation"><div className="workshop-conversation-title"><MessageCircle size={15}/><span>IN THE CONVERSATION</span></div><blockquote>“{scene.social.quote}”<cite>— {scene.social.quoteBy}</cite></blockquote><p>{scene.social.text}</p><div>{scene.social.links.map(link => <Evidence key={link.href} link={link}/>)}</div></aside>

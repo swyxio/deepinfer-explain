@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1340" viewBox="0 0 1600 1340" role="img" aria-labelledby="title description">
+  <title id="title">Six visual directions for DSpark's shared verification budget</title>
+  <desc id="description">Six sketches of the same example: probability ribbons, a ranking wall, shared tickets, a linked train, a target checkpoint, and a counterfactual comparison. Two base queries leave three slots, selected as A1, B1 and A2.</desc>
+  <style>
+    text { font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; fill: #173346 }
+    .eyebrow { font-size: 14px; letter-spacing: 2px; font-weight: 700; fill: #477d72 }
+    .title { font-size: 38px; font-weight: 700; letter-spacing: -1px }
+    .sub { font-size: 20px; fill: #577180 }
+    .head { font-size: 24px; font-weight: 700 }
+    .desc { font-size: 17px; fill: #577180 }
+    .mini { font-size: 15px; font-weight: 600; fill: #365562 }
+    .small { font-size: 13px; fill: #577180 }
+    .mono { font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace; font-size: 16px; font-weight: 600 }
+    .white { fill: #fff }
+    .board { fill: #fffefa; stroke: #dce7e2; stroke-width: 2 }
+    .track { stroke: #c9d9d1; stroke-width: 3; stroke-linecap: round }
+  </style>
+  <rect width="1600" height="1340" fill="#f3f6f3"/>
+  <text x="64" y="60" class="eyebrow">ONE ALGORITHM · SIX VISUAL DIRECTIONS</text>
+  <text x="64" y="110" class="title">How should we draw the allocator?</text>
+  <text x="64" y="145" class="sub">The same two requests, the same five-query budget. Each view reveals a different part of the mechanism.</text>
+
+  <!-- 1: probability ribbons -->
+  <g transform="translate(64 185)">
+    <rect class="board" width="720" height="340" rx="12"/>
+    <text x="26" y="40" class="head">01  Probability ribbons</text>
+    <text x="26" y="67" class="desc">Make cumulative confidence visible as a narrowing path.</text>
+    <text x="35" y="111" class="mini">B's predicted prefix</text>
+    <path d="M47 150 L199 160 L355 184 L520 185.6 L520 214.4 L355 216 L199 240 L47 250 Z" fill="#328671" opacity=".88"/>
+    <line x1="199" y1="141" x2="199" y2="260" class="track"/>
+    <line x1="355" y1="141" x2="355" y2="260" class="track"/>
+    <line x1="520" y1="141" x2="520" y2="260" class="track"/>
+    <text x="49" y="290" class="mono">1.00</text><text x="182" y="290" class="mono">.80</text><text x="339" y="290" class="mono">.32</text><text x="499" y="290" class="mono">.288</text>
+    <text x="27" y="318" class="small">The third local rate is .90, but its prefix score is .80 × .40 × .90.</text>
+  </g>
+
+  <!-- 2: ranking wall -->
+  <g transform="translate(816 185)">
+    <rect class="board" width="720" height="340" rx="12"/>
+    <text x="26" y="40" class="head">02  Ranking wall</text>
+    <text x="26" y="67" class="desc">Lift both rows onto one shared score axis.</text>
+    <line x1="64" y1="258" x2="674" y2="258" class="track"/>
+    <g class="mono" text-anchor="middle">
+      <rect x="74" y="113" width="75" height="145" rx="7" fill="#328671"/><text x="111" y="145" style="fill:#fff">A1</text><text x="111" y="175" style="fill:#fff">.90</text>
+      <rect x="171" y="129" width="75" height="129" rx="7" fill="#328671"/><text x="208" y="160" style="fill:#fff">B1</text><text x="208" y="190" style="fill:#fff">.80</text>
+      <rect x="268" y="142" width="75" height="116" rx="7" fill="#328671"/><text x="305" y="173" style="fill:#fff">A2</text><text x="305" y="203" style="fill:#fff">.72</text>
+      <rect x="365" y="177" width="75" height="81" rx="7" fill="#dce8e2"/><text x="402" y="204">A3</text><text x="402" y="232">.504</text>
+      <rect x="462" y="206" width="75" height="52" rx="7" fill="#dce8e2"/><text x="499" y="227">B2</text><text x="499" y="247">.32</text>
+      <rect x="559" y="212" width="75" height="46" rx="7" fill="#dce8e2"/><text x="596" y="231">B3</text><text x="596" y="250">.288</text>
+    </g>
+    <text x="27" y="306" class="small">Top three compete across requests, then return to their original rows.</text>
+  </g>
+
+  <!-- 3: tickets -->
+  <g transform="translate(64 553)">
+    <rect class="board" width="720" height="340" rx="12"/>
+    <text x="26" y="40" class="head">03  Shared tickets</text>
+    <text x="26" y="67" class="desc">Separate the reserved queries from the competitive slots.</text>
+    <text x="30" y="119" class="mini">FIXED: TWO BASE QUERIES</text><text x="30" y="211" class="mini">COMPETE: THREE DRAFT POSITIONS</text>
+    <g class="mono" text-anchor="middle">
+      <rect x="30" y="136" width="112" height="47" rx="7" fill="#dfe8ec"/><text x="86" y="166">base A</text>
+      <rect x="153" y="136" width="112" height="47" rx="7" fill="#dfe8ec"/><text x="209" y="166">base B</text>
+      <rect x="30" y="229" width="112" height="47" rx="7" fill="#328671"/><text x="86" y="259" style="fill:#fff">A1</text>
+      <rect x="153" y="229" width="112" height="47" rx="7" fill="#328671"/><text x="209" y="259" style="fill:#fff">B1</text>
+      <rect x="276" y="229" width="112" height="47" rx="7" fill="#328671"/><text x="332" y="259" style="fill:#fff">A2</text>
+      <text x="429" y="165" font-size="23">+</text><text x="474" y="165">3 slots</text>
+      <text x="429" y="259" font-size="23">=</text><text x="474" y="259">5 queries</text>
+    </g>
+    <text x="27" y="313" class="small">A ticket buys verification work; it does not mean a draft was accepted.</text>
+  </g>
+
+  <!-- 4: train -->
+  <g transform="translate(816 553)">
+    <rect class="board" width="720" height="340" rx="12"/>
+    <text x="26" y="40" class="head">04  Linked train</text>
+    <text x="26" y="67" class="desc">Show why each request receives a contiguous prefix.</text>
+    <line x1="62" y1="158" x2="629" y2="158" class="track"/><line x1="62" y1="241" x2="629" y2="241" class="track"/>
+    <g class="mono" text-anchor="middle">
+      <text x="38" y="164">A</text><text x="38" y="247">B</text>
+      <rect x="69" y="133" width="111" height="50" rx="7" fill="#dfe8ec"/><text x="124" y="164">base</text>
+      <rect x="201" y="133" width="111" height="50" rx="7" fill="#328671"/><text x="256" y="164" style="fill:#fff">A1</text>
+      <rect x="333" y="133" width="111" height="50" rx="7" fill="#328671"/><text x="388" y="164" style="fill:#fff">A2</text>
+      <rect x="465" y="133" width="111" height="50" rx="7" fill="#eef2ef"/><text x="520" y="164">A3</text>
+      <rect x="69" y="216" width="111" height="50" rx="7" fill="#dfe8ec"/><text x="124" y="247">base</text>
+      <rect x="201" y="216" width="111" height="50" rx="7" fill="#328671"/><text x="256" y="247" style="fill:#fff">B1</text>
+      <rect x="333" y="216" width="111" height="50" rx="7" fill="#eef2ef"/><text x="388" y="247">B2</text>
+      <rect x="465" y="216" width="111" height="50" rx="7" fill="#eef2ef"/><text x="520" y="247">B3</text>
+      <text x="641" y="164">3</text><text x="641" y="247">2</text>
+    </g>
+    <text x="27" y="313" class="small">Regroup the chosen positions: query lengths A=3 and B=2.</text>
+  </g>
+
+  <!-- 5: checkpoint -->
+  <g transform="translate(64 921)">
+    <rect class="board" width="720" height="340" rx="12"/>
+    <text x="26" y="40" class="head">05  Inspection checkpoint</text>
+    <text x="26" y="67" class="desc">Make selection and target-model acceptance separate events.</text>
+    <rect x="47" y="123" width="194" height="103" rx="9" fill="#e1eee7"/>
+    <text x="144" y="160" class="mini" text-anchor="middle">ALLOCATED</text><text x="144" y="194" class="mono" text-anchor="middle">A=3   B=2</text>
+    <path d="M263 175 H333 M320 162 L333 175 L320 188" fill="none" stroke="#71988a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="356" y="106" width="213" height="137" rx="9" fill="#dfeaf0" stroke="#9bb7c4" stroke-width="2"/>
+    <text x="462" y="159" class="mini" text-anchor="middle">TARGET MODEL</text><text x="462" y="192" class="small" text-anchor="middle">verifies selected prefixes</text>
+    <text x="27" y="313" class="small">The result of verification is deliberately unspecified in this example.</text>
+  </g>
+
+  <!-- 6: comparison -->
+  <g transform="translate(816 921)">
+    <rect class="board" width="720" height="340" rx="12"/>
+    <text x="26" y="40" class="head">06  Paired counterfactual</text>
+    <text x="26" y="67" class="desc">Compare two allocations under the same budget.</text>
+    <rect x="29" y="108" width="305" height="147" rx="9" fill="#e3f0e8"/><rect x="352" y="108" width="338" height="147" rx="9" fill="#edf1ef"/>
+    <text x="47" y="141" class="mini">GLOBAL TOP THREE</text><text x="370" y="141" class="mini">ONE FIXED ALTERNATIVE</text>
+    <text x="47" y="183" class="mono">A1 + B1 + A2</text><text x="370" y="183" class="mono">A1 + B1 + B2</text>
+    <text x="47" y="222" class="mono">.90 + .80 + .72 = 2.42</text><text x="370" y="222" class="mono">.90 + .80 + .32 = 2.02</text>
+    <text x="27" y="313" class="small">Sums of predicted prefix scores, not measured throughput.</text>
+  </g>
+</svg>
