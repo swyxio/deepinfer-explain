@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowRight, ArrowUpRight, BookOpen, ChevronDown, Code2, GitBranch, Layers3 } from 'lucide-react';
 import { articleSections, articleSource, type ArticleLink } from './article-notes';
-import { translationSections, translationSectionLines, translationHeadings, translationSubheadings, translationAnnotations, translationHighlights, translationDiagrams } from './translation';
+import { translationSections, translationSectionLines, translationHeadings, translationSubheadings, translationAnnotations, translationHighlights, translationDiagrams, translationFigures } from './translation';
 import { ArticleDiagram } from './article-diagrams';
 import { executionPaths } from './execution-paths';
 import { modules } from './modules';
@@ -165,6 +165,10 @@ export function ArticleGuide({ section, annotation }: { section?: string; annota
               return <div className={`translation-row ${notes.length ? 'has-notes' : ''}`} key={line}>
                 <div className="translation-body">
                   {translationHeadings.has(line) ? <h2 className="translation-heading">{content}</h2> : translationSubheadings.has(line) ? <h3 className="translation-subheading">{content}</h3> : text ? <p className="translation-original">{content}</p> : <div className="translation-blank"/>}
+                  {translationFigures[line]?.map(figure => <figure className="translation-figure" key={figure.src}>
+                    <a href={figure.src} target="_blank" rel="noreferrer" aria-label={`Open full-size image: ${figure.title}`}><img src={figure.src} alt={figure.alt} width={figure.width} height={figure.height} loading="lazy"/></a>
+                    <figcaption><span>DeepSeek · {figure.title}</span><a href={figure.src} target="_blank" rel="noreferrer">Open image <ArrowUpRight size={12}/></a></figcaption>
+                  </figure>)}
                   {diagram && <details className="translation-extra"><summary>Explore our diagram <ChevronDown size={15}/></summary><ArticleDiagram sectionId={diagram}/></details>}
                   {line === 73 && <details className="translation-extra"><summary>Try the cache-hit calculator <ChevronDown size={15}/></summary><CacheHitCalculator/></details>}
                 </div>

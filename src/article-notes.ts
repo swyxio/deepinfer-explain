@@ -42,7 +42,7 @@ const nanoflow: ArticleLink = { label: 'NanoFlow paper', url: 'https://www.useni
 
 export const articleSource = {
   title: 'DeepSeek V4.1 Flash Large-Scale Inference Deployment Practice',
-  note: 'The translation below is reproduced from the supplied text. Commentary, highlights and diagrams are added by this guide. The pasted text does not include the original figures; figure links and related source material are provided alongside it.',
+  note: 'The translation and four DeepSeek figures below were supplied for this guide. Notes, highlights and explainers are added alongside them.',
   links: [article, original, qa(1)],
 };
 
@@ -69,7 +69,7 @@ export const articleSections: ArticleSection[] = [
       },
       {
         id: 'prefill-pareto', title: 'Offline prefill: throughput versus latency', status: 'Author-reported offline benchmark',
-        explanation: "Going from 4,096 to 32,768 tokens per rank raises uncached throughput from about 60K to 87K tokens/s/GPU, while a prefill step grows from roughly 70 ms to 375 ms. Bigger batches help, but the curve shows diminishing returns. This offline sweep ran on four SM100 GPUs.",
+        explanation: "Going from 4,096 to 32,768 tokens per rank raises uncached throughput from about 66K to 87K tokens/s/GPU, while a prefill step grows from roughly 60 ms to 375 ms. Bigger batches help, but the curve shows diminishing returns. This offline sweep ran on four SM100 GPUs.",
         evidence: [{ label: 'Prefill benchmark figure', url: 'https://pbs.twimg.com/media/HVFrsSZaAAAJBn_.jpg' }, repo('Benchmark conditions', 'README.md', 77)], code: [repo('Benchmark sweep runner', 'examples/sweep/run_sweep.sh', 1)], related: [],
       },
       {

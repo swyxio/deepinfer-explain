@@ -20,6 +20,12 @@
 .translation-layout .article-sections{padding-bottom:var(--notes-overflow,0px)}
 .translation-row{display:block;position:relative;padding:var(--note-space,0px) 350px 0 0}
 .translation-original{font:17px/1.72 Georgia,'Times New Roman',serif;color:#253b53;margin:0 0 19px}
+.translation-figure{margin:0 0 26px}
+.translation-figure>a{display:block;background:#fff;border:1px solid #d9e4ef;border-radius:5px;overflow:hidden}
+.translation-figure img{display:block;width:100%;height:auto}
+.translation-figure figcaption{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-top:8px;color:#667e98;font:12px/1.5 system-ui,sans-serif}
+.translation-figure figcaption a{display:inline-flex;align-items:center;gap:3px;color:#356ba9;white-space:nowrap;text-decoration:none}
+.translation-figure a:focus-visible{outline:3px solid #3777d8;outline-offset:3px}
 .translation-heading,.translation-subheading{font-family:Georgia,'Times New Roman',serif;font-weight:600;color:#1a3553}
 .translation-heading{font-size:27px}
 .translation-subheading{font-size:21px}

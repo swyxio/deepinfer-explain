@@ -1,4 +1,8 @@
 import translation from './article-translation.txt?raw';
+import architecture from './assets/article/production-architecture.png';
+import productionPerformance from './assets/article/production-performance.png';
+import prefillBenchmark from './assets/article/prefill-benchmark.png';
+import decodeBenchmark from './assets/article/decode-benchmark.png';
 
 // Line numbers refer to the unedited, user-supplied translation. They let the
 // guide attach commentary without changing the underlying text.
@@ -54,4 +58,22 @@ export const translationHighlights: Record<number, string[]> = {
 
 export const translationDiagrams: Record<number, string> = {
   18: 'system', 68: 'cache', 81: 'replay', 86: 'speculation', 90: 'async',
+};
+
+export const translationFigures: Record<number, { src: string; title: string; alt: string; width: number; height: number }[]> = {
+  18: [{
+    src: architecture, title: 'Production architecture', width: 680, height: 359,
+    alt: 'DeepSeek Recipe and an entrypoint route requests to separate vision encoder, prefill and decode services, each with load balancers. Prefill and decode exchange KV cache and connect to external KV cache storage.',
+  }],
+  23: [{
+    src: productionPerformance, title: 'Actual production performance', width: 680, height: 640,
+    alt: 'DeepSeek reports prefill throughput of 60K uncached and 1.5M cache-inclusive tokens per second per GPU, a 96% input cache hit rate, mean and P99 time to first token of 400 and 1,000 milliseconds, and 77K average input tokens. Decode throughput is 14K tokens per second per GPU, with 230 tokens per second output speed, or 300 for coding. KV cache is retained for 72 hours after inactivity.',
+  }],
+  24: [{
+    src: prefillBenchmark, title: 'Prefill: non-cached input throughput vs. latency', width: 679, height: 468,
+    alt: 'Offline prefill chart: throughput increases from about 66K to 87K tokens per second per GPU as batch size rises from 4,096 to 32,768 tokens per rank, while latency rises from roughly 60 to 375 milliseconds per prefill step. At 65,536 tokens, throughput stays near 87K while latency rises to about 750 milliseconds.',
+  }, {
+    src: decodeBenchmark, title: 'Decode: output throughput vs. interactivity', width: 679, height: 468,
+    alt: 'Offline decode chart: as concurrent requests per rank increase from 8 to 256, per-user speed falls from about 325 to 100 tokens per second while output throughput rises from roughly 2,500 to 26,000 tokens per second per GPU.',
+  }],
 };
