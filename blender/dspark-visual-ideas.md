@@ -67,4 +67,4 @@ These styles can share the same restrained palette and labels. A style is a way 
 
 Combine **probability ribbons or survival gates → shared tickets → inspection queue** in one scene, using the same objects and colors throughout. The SVG should carry exact numbers; the motion should expose their relationships before a viewer reads the code. Use the ImageGen study's light paper and ceramic aesthetic, with no decorative machinery. Keep source and vLLM/SGLang comparisons outside the moving illustration.
 
-The current pilot tests this direction with a small predicted-reach bar chart, physical tickets and a target-model destination. It does not yet animate full gates or ribbons; those remain alternatives to evaluate against the pilot.
+The current pilot builds from narrowing ribbons to a shared-budget ranking, ordered prefixes, a worked verification outcome, and the complete decode loop.

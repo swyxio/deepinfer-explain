@@ -6,10 +6,14 @@
 .dspark-diagram-scroll img { display: block; width: 100%; min-width: 840px; }
 .dspark-study figcaption { margin: 9px 0 26px; color: #6f8595; font-size: 11px; line-height: 1.5; }
 .dspark-scroll-hint { display: none; }
-.dspark-video-heading { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-top: 24px; }
-.dspark-video-heading > span { color: #7d93a8; font: 10px 'IBM Plex Mono', monospace; white-space: nowrap; padding-bottom: 12px; }
-.dspark-beats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 14px 0 20px; padding: 0; list-style: none; color: #506b80; font-size: 12px; line-height: 1.6; }
-.dspark-beats strong { color: #264a68; }
+.dspark-chapters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 20px; margin: 18px 0 20px; padding: 0; list-style: none; }
+.dspark-chapters li { min-width: 0; padding: 10px 0; border-top: 1px solid #dbe5e2; }
+.dspark-chapters button { display: flex; flex-wrap: wrap; align-items: baseline; gap: 9px; padding: 0; border: 0; background: transparent; color: #264a68; text-align: left; cursor: pointer; }
+.dspark-chapters button:hover strong { text-decoration: underline; }
+.dspark-chapters button span { color: #558577; font: 11px 'IBM Plex Mono', monospace; }
+.dspark-chapters button strong { font-size: 13px; }
+.dspark-chapters p { margin: 6px 0 0; color: #506b80; font-size: 12px; line-height: 1.6; }
+.dspark-chapters p a { color: #346a9a; font-weight: 700; white-space: nowrap; }
 .dspark-details { margin-top: 20px; border: 1px solid #dbe5ef; border-radius: 7px; padding: 14px 16px; }
 .dspark-details summary { cursor: pointer; color: #335c7e; font-size: 13px; font-weight: 700; }
 .dspark-details[open] summary { margin-bottom: 13px; }
@@ -18,5 +22,5 @@
 .dspark-details p.dspark-styles { margin: 14px 0 0; }
 .dspark-code-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .dspark-code-grid .module-code { min-width: 0; }
-@media (max-width: 760px) { .dspark-study { padding: 15px; } .dspark-scroll-hint { display: inline; } .dspark-code-grid, .dspark-beats { grid-template-columns: 1fr; } .dspark-beats { gap: 8px; } .dspark-video-heading > span { display: none; } .dspark-code-grid .module-code-header { flex-direction: column; } }
+@media (max-width: 760px) { .dspark-study { padding: 15px; } .dspark-scroll-hint { display: inline; } .dspark-code-grid, .dspark-chapters { grid-template-columns: 1fr; } .dspark-code-grid .module-code-header { flex-direction: column; } }
 .dspark-code-gap { display: block; padding-left: 29px; color: #91aebe; }

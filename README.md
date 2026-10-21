@@ -8,7 +8,7 @@ The models and hardware explorer compares a selection of architectures from [Seb
 
 Five visual stories use playable, step-by-step diagrams to explain cache reuse, disaggregation, bounded replay, speculative verification and scheduling overlap. A curated set of public launch posts provides context; the diagrams are conceptual and link to the source and research behind the claims.
 
-The Blender lab includes five original source-linked module walkthroughs and a diagram-led DSpark pilot. The pilot starts with an SVG of a shared verification budget, uses ImageGen for a material study, and animates that same example in Blender. The associated code and vLLM/SGLang comparisons remain available below the visual. See the [DSpark study](blender/dspark-study.md) and [original Blender scenes](blender/README.md) for editable assets and sources.
+The Blender lab includes five original source-linked module walkthroughs and a diagram-led DSpark pilot. The pilot builds from prefix scores to a numerical budget choice, batch-wide allocation, verification and the decode loop. It began with an SVG and an ImageGen material study; the resulting Blender scene is editable. The associated code and vLLM/SGLang comparisons remain available below the visual. See the [DSpark study](blender/dspark-study.md) and [original Blender scenes](blender/README.md) for editable assets and sources.
 
 ## Run locally
 

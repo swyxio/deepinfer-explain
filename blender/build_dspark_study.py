@@ -1,10 +1,8 @@
-"""A single editable DSpark budget animation, modeled on the material study.
+"""Build an editable, progressively revealed DSpark explanation.
 
-Build with:
+The invented two-request example separates a toy CPU budget choice, GPU
+allocation, and a separately invented verification outcome. Blender 5.2:
   Blender -b --python blender/build_dspark_study.py -- OUTPUT_DIR
-
-Six illustrative cumulative survival scores are ranked across two requests.
-The scene selects work for target verification; it does not depict acceptance.
 """
 import sys
 from pathlib import Path
@@ -13,245 +11,316 @@ import bpy
 from mathutils import Vector
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from scene_core import mat, cube, label, overlay, sphere, line
-
+from scene_core import mat, cube, label, line
 
 ROOT = Path(__file__).resolve().parents[1]
-FRAMES = 528
+FPS = 15
+DURATION = 102
+FRAMES = FPS * DURATION
 
 
-def visible(objects, first=1, last=FRAMES):
+def frame(seconds):
+    return max(1, round(seconds * FPS) + 1)
+
+
+def show(objects, start=0, end=DURATION):
     for obj in objects:
-        states = [(1, first > 1)]
-        if first > 1:
-            states += [(first - 1, True), (first, False)]
-        if last < FRAMES:
-            states += [(last, False), (last + 1, True)]
-        for frame, hidden in states:
+        a, b = frame(start), min(frame(end), FRAMES)
+        for tick, hidden in ((1, a > 1), (max(1, a - 1), a > 1), (a, False), (b, False)):
             obj.hide_render = obj.hide_viewport = hidden
-            obj.keyframe_insert(data_path='hide_render', frame=frame)
-            obj.keyframe_insert(data_path='hide_viewport', frame=frame)
+            obj.keyframe_insert(data_path='hide_render', frame=tick)
+        if b < FRAMES:
+            obj.hide_render = obj.hide_viewport = True
+            obj.keyframe_insert(data_path='hide_render', frame=b + 1)
 
 
-def move(root, keys):
-    for frame, position in keys:
-        root.location = position
-        root.keyframe_insert(data_path='location', frame=frame)
+def place(obj, keys):
+    for seconds, position in keys:
+        obj.location = position
+        obj.keyframe_insert(data_path='location', frame=frame(seconds))
 
 
-def scale(root, keys):
-    for frame, value in keys:
-        root.scale = (value, value, value)
-        root.keyframe_insert(data_path='scale', frame=frame)
-
-
-def colored(name, color, roughness=.75):
-    return mat(name, color, roughness=roughness)
-
-
-def surface_color(material, color, frame):
+def change_color(material, color, seconds):
     rgb = [int(color[i:i+2], 16) / 255 for i in (1, 3, 5)]
-    rgba = tuple(v / 12.92 if v <= .04045 else ((v+.055)/1.055)**2.4 for v in rgb) + (1,)
+    rgba = tuple(v / 12.92 if v <= .04045 else ((v + .055) / 1.055) ** 2.4 for v in rgb) + (1,)
     slot = material.node_tree.nodes['Principled BSDF'].inputs['Base Color']
     slot.default_value = rgba
-    slot.keyframe_insert(data_path='default_value', frame=frame)
+    slot.keyframe_insert(data_path='default_value', frame=frame(seconds))
 
 
-def attach(root, obj, loc):
-    obj.parent = root
-    obj.location = loc
+def slab(name, cx, cy, width, height, material, depth=.10, z=.2, bevel=.045):
+    return cube(name, (cx, cy, z), (width, height, depth), material, bevel)
+
+
+def txt(name, value, x, y, size, ink, align='LEFT', start=0, end=DURATION, z=.35):
+    item = label(name, value, (x, y, z), size, ink, align)
+    show([item], start, end)
+    return item
+
+
+def stroke(name, points, ink, radius=.022, start=0):
+    obj = line(name, [(x, y, .31) for x, y in points], ink, radius)
+    show([obj], start)
     return obj
 
 
-def tile(name, mark, score, formula, xyz, kind, p):
-    root = bpy.data.objects.new('Tile / ' + name, None)
+def arrow(name, x1, y1, x2, y2, ink, start=0, radius=.025):
+    dx, dy = x2-x1, y2-y1
+    length = (dx*dx + dy*dy) ** .5
+    ux, uy = dx/length, dy/length
+    wing = .16
+    stroke(name + ' / shaft', [(x1, y1), (x2, y2)], ink, radius, start)
+    stroke(name + ' / head', [(x2 - .25*ux + wing*uy, y2 - .25*uy - wing*ux), (x2, y2),
+                              (x2 - .25*ux - wing*uy, y2 - .25*uy + wing*ux)], ink, radius, start)
+
+
+def ribbon(name, x, y, length, width0, width1, material, start, finish):
+    mesh = bpy.data.meshes.new(name)
+    mesh.from_pydata([(0, -width0/2, 0), (length, -width1/2, 0),
+                      (length, width1/2, 0), (0, width0/2, 0)], [], [(0, 1, 2, 3)])
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    obj.location = (x, y, .29)
+    obj.data.materials.append(material)
+    show([obj], start)
+    for sec, scale in ((start, .001), (finish, 1)):
+        obj.scale.x = scale
+        obj.keyframe_insert(data_path='scale', frame=frame(sec))
+    return obj
+
+
+def card(name, x, y, w, h, fill, ink, top, bottom='', start=0, size=.40):
+    root = bpy.data.objects.new(name + ' / group', None)
     bpy.context.collection.objects.link(root)
-    root.location = xyz
-    width = 1.65 if kind == 'base' else 1.88
-    fill = colored('Tile / %s / surface' % name, '#e7eeea' if kind == 'base' else '#f2f2ed')
-    typography = colored('Tile / %s / ink' % name, '#173e4a')
-    edge = p['base_edge'] if kind == 'base' else p['sage']
-    parts = [attach(root, cube(name + ' / edge', (0, 0, 0), (width, .92, .15), edge, .075), (0, 0, 0)),
-             attach(root, cube(name + ' / face', (0, 0, 0), (width-.05, .87, .10), fill, .065), (0, 0, .09))]
-    if kind == 'base':
-        parts.append(attach(root, label(name + ' / text', mark, (0,0,0), .25, typography), (0,0,.15)))
-    else:
-        parts.append(attach(root, label(name + ' / mark', mark, (0,0,0), .27, typography, 'LEFT'), (-.70,.15,.15)))
-        parts.append(attach(root, label(name + ' / score', score, (0,0,0), .31, typography, 'RIGHT'), (.70,.15,.15)))
-        parts.append(attach(root, label(name + ' / formula', formula, (0,0,0), .19, typography, 'LEFT'), (-.70,-.24,.15)))
-    return root, parts, fill, typography
+    root.location = (x, y, .32)
+    body = slab(name + ' / paper', 0, 0, w, h, fill, depth=.09, z=0)
+    body.parent = root
+    body.location = (0, 0, 0)
+    first = label(name + ' / label', top, (0, 0, .07), size, ink, 'CENTER')
+    first.parent = root
+    first.location = (0, .14 if bottom else 0, .08)
+    pieces = [body, first]
+    if bottom:
+        second = label(name + ' / detail', bottom, (0, 0, .07), .26, ink, 'CENTER')
+        second.parent = root
+        second.location = (0, -.22, .08)
+        pieces.append(second)
+    show(pieces, start)
+    return root, pieces
 
 
-def caption(text, first, last, ink):
-    obj = overlay('Caption / ' + text, text, -7.25, -4.23, .30, ink)
-    visible([obj], first, last)
+def title(center, number, heading, sub, sub_start=0):
+    txt('section ' + str(number), '%02d  /  %s' % (number, heading), center-7.0, 3.90, .30, P['teal'])
+    txt('heading ' + str(number), sub, center-7.0, 3.29, .43, P['ink'], start=sub_start)
+
+
+def stage(center):
+    slab('Page edge %s' % center, center, 0, 15.35, 8.65, P['edge'], depth=.12, z=-.06, bevel=.12)
+    slab('Page %s' % center, center, 0, 15.30, 8.60, P['page'], depth=.12, z=.03, bevel=.12)
 
 
 def setup():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     s = bpy.context.scene
-    s.name = 'DSpark / shared verification budget'
-    s.frame_start, s.frame_end, s.render.fps = 1, FRAMES, 24
+    s.name = 'DSpark / from prefix scores to the decode loop'
+    s.frame_start, s.frame_end, s.render.fps = 1, FRAMES, FPS
     s.render.engine = 'BLENDER_EEVEE'
-    s.eevee.taa_render_samples = 16
+    s.eevee.taa_render_samples = 8
     s.render.use_sequencer = s.render.use_compositing = False
     s.render.resolution_x, s.render.resolution_y, s.render.resolution_percentage = 1280, 720, 100
     s.render.image_settings.file_format = 'PNG'
     s.view_settings.view_transform = 'Standard'
-    s.world = bpy.data.worlds.new('Warm daylight')
+    s.world = bpy.data.worlds.new('Daylight')
     s.world.use_nodes = True
-    s.world.node_tree.nodes['Background'].inputs['Color'].default_value = (.78,.76,.70,1)
-    s.world.node_tree.nodes['Background'].inputs['Strength'].default_value = .53
-    p = {
-        'paper': colored('Warm paper desk', '#E6D9C9'),
-        'board': colored('Porcelain board', '#F2EFE8'),
-        'shadow': colored('Board edge', '#C6BAA9'),
-        'ink': colored('Typography / navy', '#102C3D'),
-        'muted': colored('Typography / slate', '#3B5865'),
-        'base_edge': colored('Base / edge', '#CBD7D2'),
-        'sage': colored('Draft / edge', '#D4E0DA'),
-        'recess': colored('Budget / empty slots', '#CFDBD3'),
-        'blue': colored('Target / blue porcelain', '#D8E7EF'),
-        'green': colored('Selection / forest green', '#267F6D'),
+    s.world.node_tree.nodes['Background'].inputs['Color'].default_value = (.79, .79, .75, 1)
+    s.world.node_tree.nodes['Background'].inputs['Strength'].default_value = .65
+    palette = {
+        'desk': '#E7DFD2', 'edge': '#D1CEC3', 'page': '#FAF9F4', 'ink': '#173346',
+        'muted': '#56707A', 'teal': '#276E60', 'green': '#338777', 'pale': '#DDECE4',
+        'blue': '#DCEAF0', 'blue_dark': '#3F7286', 'track': '#B6CFC2', 'ghost': '#E9EFEB',
+        'white': '#FFFFFF', 'gold': '#E7B962', 'amber': '#F6E9CC', 'red': '#9B5744',
     }
-    cube('Desk', (0,0,-.36), (200,200,.5), p['paper'], 0)
-    bpy.ops.object.camera_add(location=(0,-8,27))
-    camera = bpy.context.object
-    camera.name = 'Camera / paper tableau'
-    camera.rotation_euler = (Vector((0,0,0)) - camera.location).to_track_quat('-Z', 'Y').to_euler()
-    camera.data.type = 'ORTHO'
-    camera.data.ortho_scale = 16.6
-    s.camera = camera
-    for name, location, energy, size in [('Window',(-5,-5,12),1100,8), ('Bounce',(5,4,10),550,9)]:
-        bpy.ops.object.light_add(type='AREA', location=location)
-        light=bpy.context.object
-        light.name='Light / '+name
-        light.data.energy, light.data.size = energy, size
-        light.rotation_euler = (Vector((0,0,0)) - light.location).to_track_quat('-Z','Y').to_euler()
-    overlay('Title', 'DSpark: one verification budget, two requests', -7.25, 4.10, .43, p['ink'])
-    overlay('Subtitle', 'Choose draft positions by cumulative prefix confidence.', -7.25, 3.60, .25, p['muted'])
+    p = {k: mat('Study / ' + k, v, roughness=.9) for k, v in palette.items()}
+    slab('Paper ground', 36, 0, 200, 200, p['desk'], depth=.3, z=-.45, bevel=0)
+    bpy.ops.object.camera_add(location=(0, 0, 30))
+    cam = bpy.context.object
+    cam.name = 'Camera / move across one continuous paper'
+    cam.rotation_euler = (0, 0, 0)
+    cam.data.type = 'ORTHO'
+    cam.data.ortho_scale = 16.8
+    s.camera = cam
+    for sec, x in [(0,0), (22,0), (24,18), (40,18), (42,36), (59,36),
+                   (61,54), (81,54), (83,72), (102,72)]:
+        cam.location.x = x
+        cam.keyframe_insert(data_path='location', frame=frame(sec))
+    for center in (0, 18, 36, 54, 72):
+        bpy.ops.object.light_add(type='AREA', location=(center-3, -4, 14))
+        light = bpy.context.object
+        light.name = 'Softbox / %d' % center
+        light.data.energy, light.data.size = 1600, 15
+        light.rotation_euler = (Vector((center, 0, 0)) - light.location).to_track_quat('-Z', 'Y').to_euler()
     return s, p
 
 
-def build(out):
-    s,p=setup()
-    # The two boards and shallow recesses are actual ceramic objects, not a
-    # composited graphic. Lifted tiles travel between them during the scene.
-    cube('Score board / edge', (0,1.31,.00), (14.7,3.35,.20), p['shadow'], .14)
-    cube('Score board / porcelain', (0,1.31,.11), (14.7,3.35,.13), p['board'], .14)
-    label('Request A', 'REQUEST A', (-6.93,1.91,.20), .25, p['ink'], 'LEFT')
-    label('Request B', 'REQUEST B', (-6.93,.57,.20), .25, p['ink'], 'LEFT')
-    label('A confidence', '.90 x .80 x .70', (-6.12,1.57,.20), .18, p['muted'])
-    label('B confidence', '.80 x .40 x .90', (-6.12,.23,.20), .18, p['muted'])
-    label('Score heading', 'LOCAL CONFIDENCE  ->  PREFIX SURVIVAL', (-.25,2.72,.20), .20, p['muted'])
-    # A physical mini-chart shows expected prefix survivors, not measured
-    # acceptances. Its sequential reveal follows B1 -> B2 -> B3.
-    label('Cohort / heading', 'PREDICTED REACH / 1,000', (5.13,2.59,.20), .18, p['muted'])
-    cohort=[(3.62,1000,'START',1),(4.60,800,'B1',18),(5.58,320,'B2',37),(6.56,288,'B3',66)]
-    for i,(x,n,word,first) in enumerate(cohort):
-        height=1.40*n/1000
-        bar=cube('Cohort / '+word, (x,.43+height/2,.26), (.57,height,.12), p['green'], .045)
-        number=label('Cohort / count '+word, str(n), (x,2.03,.20), .19, p['ink'])
-        name=label('Cohort / step '+word, word, (x,.10,.20), .17, p['muted'])
-        visible([bar],first,FRAMES)
-        visible([number,name],first+(14 if i else 0),FRAMES)
+def build_prefix():
+    c = 0
+    title(c, 1, 'PREFIX CONFIDENCE', 'A later draft only helps if earlier drafts survive.', 4)
+    txt('speculation introduction', 'A draft proposes tokens for the target to verify together.', c-7.0, 3.29, .43, P['ink'], end=3.9)
+    txt('B label', 'REQUEST B  /  LOCAL CONFIDENCE', -6.8, 2.48, .24, P['muted'])
+    card('B base', -5.6, 1.73, 2.3, .82, P['blue'], P['ink'], 'base', 'existing query', 0, .36)
+    for i, (x, rate) in enumerate([(-2.25, '.80'), (1.15, '.40'), (4.55, '.90')], 1):
+        card('B draft %d' % i, x, 1.73, 2.3, .82, P['ghost'], P['ink'], 'B%d' % i, rate + ' local', 0, .36)
+    txt('B ribbon label', 'ESTIMATED PREFIX SCORE', -6.8, .86, .22, P['muted'])
+    xs = [-6.0, -2.6, .8, 4.2]
+    widths = [1.10, .88, .352, .3168]
+    for i, (a, b) in enumerate([(4,6.6), (8,10.6), (12,14.6)]):
+        ribbon('B ribbon %d' % i, xs[i], .10, 3.4, widths[i], widths[i+1], P['green'], a, b)
+    for i, (x, score, when) in enumerate([(-6.0,'1.00',0),(-2.6,'.80',6.6),(.8,'.32',10.6),(4.2,'.288',14.6)]):
+        txt('B prefix %d' % i, score, x, -.80, .36, P['teal'], 'CENTER', when)
+    txt('B math', 'B3: .80 × .40 × .90 = .288', -6.8, -1.30, .39, P['ink'], start=15)
+    txt('B insight', 'A high local score cannot undo a weak earlier step.', -6.8, -1.84, .31, P['muted'], start=15)
+    txt('A row label', 'REQUEST A  /  LOCAL .90, .80, .70', -6.8, -2.52, .25, P['muted'], start=17.5)
+    for i, (h0, h1) in enumerate([(1,.9),(.9,.72),(.72,.504)]):
+        ribbon('A ribbon %d' % i, xs[i], -3.12, 3.4, .55*h0, .55*h1, P['blue_dark'], 17.5+i*.7, 18.2+i*.7)
+    for i, (x, score) in enumerate([(-2.6,'.90'),(.8,'.72'),(4.2,'.504')]):
+        txt('A prefix %d' % i, score, x, -3.68, .31, P['blue_dark'], 'CENTER', 18.2+i*.7)
+
+
+def build_budget():
+    c = 18
+    title(c, 2, 'BUDGET SELECTION', 'How much verification work is worth doing?')
+    txt('budget principle', 'CPU estimates generated tokens ÷ (forward + sampler time).', c-6.8, 2.59, .32, P['muted'], start=24)
+    txt('budget formula', 'q=5:  (2 + .90 + .80 + .72) ÷ 1.40 ms = 3.16 tokens/ms', c-6.8, 1.78, .35, P['ink'], start=30.2)
+    txt('baseline note', '2 expected target outputs  +  predicted accepted drafts', c-6.8, 1.25, .25, P['muted'], start=30.2)
+    numbers = [(2, 2/1.3, 1.3), (3, 2.9/1.3, 1.3), (4, 3.7/1.3, 1.3), (5, 4.42/1.4, 1.4),
+               (6, 4.924/1.8, 1.8), (7, 5.244/2.4, 2.4), (8, 5.532/2.4, 2.4)]
+    base = -1.76
+    stroke('budget axis', [(c-6.2,base), (c+6.15,base)], P['track'], .025, 25.0)
+    for i, (q, rate, ms) in enumerate(numbers):
+        x = c - 5.52 + i*1.84
+        height = rate / 3.3 * 2.28
+        material = P['green'] if q == 5 else P['pale']
+        bar = slab('budget bar %s' % q, x, base+height/2, 1.28, height, material, depth=.08, z=.25)
+        start = 25.4+i*.55
+        show([bar], start)
+        for sec, scale in [(start,.001), (start+.5,1)]:
+            bar.scale.y = scale
+            bar.location.y = base + height*scale/2
+            bar.keyframe_insert(data_path='scale', frame=frame(sec))
+            bar.keyframe_insert(data_path='location', frame=frame(sec))
+        txt('budget value %s' % q, '%.2f' % rate, x, base+height+.22, .25, P['ink'], 'CENTER', start+.5)
+        txt('budget q %s' % q, str(q), x, -2.18, .31, P['ink'], 'CENTER', 25.0)
+        txt('budget time %s' % q, '%.2f' % ms, x, -2.65, .24, P['muted'], 'CENTER', 29.5)
+    txt('budget q label', 'q', c-6.8, -2.18, .26, P['muted'], start=25)
+    txt('budget time label', 'ms', c-6.8, -2.65, .24, P['muted'], start=29.5)
+    txt('budget maximum', 'Choose q=5: highest estimated tokens / ms.', c-6.2, -3.24, .32, P['teal'], start=31)
+    txt('budget toy note', 'Illustrative times; CPU and GPU scores assumed equal here.', c-6.2, -3.75, .23, P['muted'], start=31)
+
+
+def build_rank():
+    c = 36
+    title(c, 3, 'BATCH-WIDE RANKING', 'Two requests share the five-query budget.')
+    txt('rank rule', '5 queries  −  2 existing base queries  =  3 draft slots', c-6.8, 2.54, .37, P['ink'], start=42)
+    txt('rank A label', 'A', c-6.5, 1.37, .36, P['blue_dark'], start=42.5)
+    txt('rank B label', 'B', c-6.5, .10, .36, P['teal'], start=42.5)
+    specs = [('A1','.90',c-4.45,1.35), ('A2','.72',c-.75,1.35), ('A3','.504',c+2.95,1.35),
+             ('B1','.80',c-4.45,.08), ('B2','.32',c-.75,.08), ('B3','.288',c+2.95,.08)]
+    ranked = ['A1','B1','A2','A3','B2','B3']
+    moving = []
+    for name, score, x, y in specs:
+        card('source '+name, x, y, 2.35, .85, P['ghost'], P['muted'], name, score, 47.3, .34)
+        fill = mat('Rank chip / '+name, '#EDF1EC', roughness=.9)
+        ink = mat('Rank ink / '+name, '#173346', roughness=.9)
+        root, pieces = card('rank '+name, x, y, 2.35, .85, fill, ink, name, score, 42.5, .34)
+        rank = ranked.index(name)
+        xend = c - 5.6 + rank*2.20
+        place(root, [(42,(x,y,.32)),(47.2,(x,y,.32)),(51.8,(xend,-1.65,.32))])
+        for seconds, value in [(47.2,1), (51.8,.80)]:
+            root.scale = (value, value, value)
+            root.keyframe_insert(data_path='scale', frame=frame(seconds))
+        if rank < 3:
+            change_color(fill,'#EDF1EC',51.7); change_color(fill,'#338777',52.1)
+            change_color(ink,'#173346',51.7); change_color(ink,'#FFFFFF',52.1)
+        moving.append(root)
+    txt('rank caption', 'Rank all positions; keep the three highest scores.', c-6.8, -3.30, .30, P['muted'], start=46.5, end=51.5)
+    txt('rank winners', 'A wins 2 slots    ·    B wins 1 slot', c-6.7, -2.70, .37, P['teal'], start=52)
+    txt('rank caveat', 'The ranking chooses lengths; it does not reorder tokens.', c-6.7, -3.35, .29, P['muted'], start=53)
+
+
+def build_verification():
+    c = 54
+    title(c, 4, 'TARGET VERIFICATION', 'Turn the winning scores back into ordered prefixes.')
+    txt('verify A', 'A', c-6.7, 2.23, .36, P['blue_dark'], start=61)
+    txt('verify B', 'B', c-6.7, 1.16, .36, P['teal'], start=61)
+    for request, y, names in [('A',2.18,['base','A1','A2']),('B',1.11,['base','B1'])]:
+        for i, word in enumerate(names):
+            x=c-5.2+i*1.72
+            fill = mat('Verify / '+request+' '+word, '#DCEAF0' if word=='base' else '#DDECE4', roughness=.9)
+            ink = mat('Verify ink / '+request+' '+word, '#173346', roughness=.9)
+            card('verify '+request+' '+word,x,y,1.48,.72,fill,ink,word,'',61,.30)
+            if request == 'A' and word in ('A1', 'A2'):
+                when = 68 if word == 'A1' else 72
+                change_color(fill, '#DDECE4', when-.2)
+                change_color(fill, '#338777' if word == 'A1' else '#9B5744', when+.2)
+                change_color(ink, '#173346', when-.2)
+                change_color(ink, '#FFFFFF', when+.2)
+            if i:
+                stroke('prefix coupling '+request+str(i),[(x-.95,y),(x-.77,y)],P['track'],.035,61)
+    txt('query lengths', 'A=3   B=2 query inputs', c-6.7, .42, .28, P['muted'], start=62)
+    arrow('prefix to target',c+.0,1.55,c+1.0,1.55,P['teal'],62)
+    card('target forward', c+2.65, 1.58, 3.0, 1.45, P['blue'], P['ink'], 'TARGET', 'forward + sampling', 62, .35)
+    arrow('target to output',c+4.25,1.55,c+4.65,1.55,P['teal'],75)
+    card('A emitted output', c+5.75, 1.58, 1.9, .85, P['amber'], P['ink'], 'A1 + new', 'resampled', 75, .25)
+    txt('verify rationale', 'Acceptance probability = min(1, target ÷ draft).', c-6.7, -.36, .31, P['ink'], start=64)
+    txt('verification example', 'ONE POSSIBLE SAMPLING OUTCOME FOR A', c-6.7, -1.05, .24, P['muted'], start=66)
+    txt('A1 calculation', 'A1   target .75 ÷ draft .60 → 1.00;  draw .50 → ACCEPT', c-6.7, -1.68, .31, P['teal'], start=67)
+    txt('A2 calculation', 'A2   target .20 ÷ draft .80 → .25;  draw .60 → REJECT', c-6.7, -2.28, .31, P['red'], start=71)
+    txt('verify result', 'Emit A1 + a residual-sampled token. B is not shown.', c-6.7, -2.95, .31, P['ink'], start=75)
+    txt('verification note', 'The p/q numbers and draws are a separate illustrative example.', c-6.7, -3.55, .23, P['muted'], start=75)
+
+
+def build_system():
+    c = 72
+    title(c, 5, 'THE COMPLETE DECODE LOOP', 'Budget, allocate, verify, then draft again.')
+    txt('system top note', 'CPU uses older rates; the GPU uses the preceding step’s confidence.', c-6.8, 2.52, .28, P['muted'], start=83)
+    centers = [c-5.35,c-1.8,c+1.75,c+5.3]
+    descriptions = [('CPU','choose total_q'),('GPU','allocate lengths'),('TARGET','forward'),('SAMPLER','accept / resample')]
+    for i, (x, (name, detail)) in enumerate(zip(centers, descriptions)):
+        start=84.2+i*1.1
+        card('system '+name,x,.88,2.75,1.38,P['blue'] if name in ('CPU','TARGET') else P['pale'],P['ink'],name,detail,start,.36)
         if i:
-            prev_x,prev_n,_,_=cohort[i-1]
-            prev_h=1.40*prev_n/1000
-            move(bar,[(first,(prev_x,.43+prev_h/2,.26)),(first+14,(x,.43+height/2,.26))])
-            for frame,value in [(first,prev_h/height),(first+14,1)]:
-                bar.scale.y=value
-                bar.keyframe_insert(data_path='scale',frame=frame)
-    for x in (-4.52,-2.55,-.42,1.71):
-        for y in (1.85,.49):
-            cube('Score board / tile well', (x,y,.19), (1.88,.95,.025), p['recess'], .07)
+            arrow('system arrow '+str(i),centers[i-1]+1.43,.88,x-1.43,.88,P['teal'],start)
+    txt('CPU detail', 'N−2 rates + timing', centers[0], -.28, .25, P['muted'], 'CENTER', 85)
+    txt('GPU detail', 'N−1 confidence', centers[1]+.35, -.28, .25, P['muted'], 'CENTER', 86)
+    txt('GPU result', 'A=3, B=2', centers[1]+.35, -.69, .28, P['teal'], 'CENTER', 87)
+    card('next MTP',c+4.1,-1.75,3.40,1.10,P['amber'],P['ink'],'MTP DRAFT','next drafts + confidence',89,.31)
+    arrow('sampler to mtp',centers[3],.04,centers[3],-.97,P['teal'],89)
+    stroke('loop line',[(c+2.35,-1.75),(c-2.75,-1.75),(c-2.75,.19)],P['green'],.03,90)
+    stroke('loop head',[(c-2.95,-.07),(c-2.75,.19),(c-2.55,-.07)],P['green'],.03,90)
+    txt('loop label', 'confidence for the next step', c+.25, -2.18, .23, P['teal'], 'CENTER', 90)
+    txt('system conclusion', 'The scheduler spends limited verification work where predicted return is highest.', c-6.8, -3.25, .31, P['ink'], start=91)
 
-    cube('Budget board / edge', (0,-2.14,.00), (14.7,2.44,.20), p['shadow'], .14)
-    cube('Budget board / porcelain', (0,-2.14,.11), (14.7,2.44,.13), p['board'], .14)
-    budget_heading = label('Budget heading', 'SHARED BUDGET  /  5 QUERY TOKENS', (-4.77,-1.32,.20), .21, p['ink'], 'LEFT')
-    for i,x in enumerate((-5.25,-3.15,-1.05,1.05,3.15)):
-        well=cube('Budget / slot %d' % (i+1), (x,-2.15,.20), (1.91,.99,.035), p['recess'], .08)
-        visible([well],1,324)
-    count = label('Budget / explanation', '2 BASE + 3 DRAFT', (5.65,-2.15,.20), .21, p['muted'])
-    visible([count], 1, 324)
 
-    specs = [
-        ('A-base','A BASE','','',(-4.52,1.85,.35),'base'),
-        ('A1','A1','.90','.90',(-2.55,1.85,.35),'draft'),
-        ('A2','A2','.72','.90 x .80',(-.42,1.85,.35),'draft'),
-        ('A3','A3','.504','.90 x .80 x .70',(1.71,1.85,.35),'draft'),
-        ('B-base','B BASE','','',(-4.52,.49,.35),'base'),
-        ('B1','B1','.80','.80',(-2.55,.49,.35),'draft'),
-        ('B2','B2','.32','.80 x .40',(-.42,.49,.35),'draft'),
-        ('B3','B3','.288','.80 x .40 x .90',(1.71,.49,.35),'draft'),
-    ]
-    tiles={name:tile(name,mark,score,formula,xyz,kind,p) for name,mark,score,formula,xyz,kind in specs}
-    # All five slot allocations are moves of the actual objects. Two bases are
-    # reserved first, then A1, B1, A2 are selected in descending score order.
-    moves = {
-        'A-base': (100,132,(-5.25,-2.15,.35)),
-        'B-base': (113,145,(-3.15,-2.15,.35)),
-        'A1': (166,195,(-1.05,-2.15,.35)),
-        'B1': (214,243,(1.05,-2.15,.35)),
-        'A2': (262,291,(3.15,-2.15,.35)),
-    }
-    grouped={'A-base':(-5.45,-1.85,.35),'A1':(-4.02,-1.85,.35),'A2':(-2.59,-1.85,.35),
-             'B-base':(-5.45,-2.89,.35),'B1':(-4.02,-2.89,.35)}
-    for name,(first,last,slot) in moves.items():
-        root,parts,fill,ink=tiles[name]
-        start=tuple(root.location)
-        group=grouped[name]
-        # Each tile lifts slightly, slides into its slot, and later regroups by
-        # request before being passed to the target model.
-        move(root, [(1,start),(first,start),(first+7,(start[0],start[1],.55)),
-                    (last-7,(slot[0],slot[1],.55)),(last,slot),(324,slot),
-                    (371,group),(411,group),
-                    (470,(group[0]+7.4,group[1],.55)),
-                    (500,(5.25,group[1],.55))])
-        scale(root,[(1,1),(324,1),(371,.68),(FRAMES,.68)])
-        visible(parts,1,499)
-        if name not in ('A-base','B-base'):
-            surface_color(fill,'#F2F2ED',last-1)
-            surface_color(fill,'#267F6D',last+2)
-            surface_color(ink,'#173E4A',last-1)
-            surface_color(ink,'#FFFFFF',last+2)
-
-    # Each initial number is a local conditional confidence. After the bead
-    # crosses the sequence, later positions flip to cumulative prefix scores.
-    # In particular B3's .90 local confidence becomes .288 after .80 x .40.
-    for name,local,flip in [('A2','.80',37),('B2','.40',37),('A3','.70',66),('B3','.90',66)]:
-        root,parts,fill,ink=tiles[name]
-        score=bpy.data.objects[name + ' / score']
-        formula=bpy.data.objects[name + ' / formula']
-        visible([score,formula],flip,499 if name=='A2' else FRAMES)
-        local_obj=attach(root,label(name+' / local score',local,(0,0,0),.31,ink,'RIGHT'),(.70,.15,.15))
-        visible([local_obj],1,flip-1)
-    dependency=line('Prefix dependency / B', [(-2.55,-.08,.25),(1.71,-.08,.25)], p['green'], .02)
-    bead=sphere('Prefix dependency / advancing product',(-2.55,-.08,.30),.09,p['green'])
-    visible([dependency,bead],20,96)
-    move(bead,[(20,(-2.55,-.08,.30)),(37,(-.42,-.08,.30)),(66,(1.71,-.08,.30)),(96,(1.71,-.08,.30))])
-    # The destination appears only after the budget is complete, maintaining
-    # the clear five-slot comparison before regrouping begins.
-    target=[cube('Target / edge',(5.22,-2.35,.24),(2.55,1.23,.18),p['base_edge'],.12),
-            cube('Target / surface',(5.22,-2.35,.35),(2.47,1.14,.12),p['blue'],.10),
-            label('Target / title','TARGET MODEL',(5.22,-2.35,.43),.25,p['ink'])]
-    visible(target,325,FRAMES)
-    visible([budget_heading],1,324)
-    result_a=label('Result / A','A = 3',(-6.35,-1.85,.23),.22,p['ink'])
-    result_b=label('Result / B','B = 2',(-6.35,-2.89,.23),.22,p['ink'])
-    visible([result_a,result_b],325,FRAMES)
-    caption('Scores multiply along the prefix: B3 .80 x .40 x .90 = .288.',1,96,p['ink'])
-    caption('Reserve one base query for each continuing request.',97,165,p['ink'])
-    caption('Highest scores take the 3 remaining slots: .90, .80, .72.',166,324,p['ink'])
-    caption('Regroup: A gets 3 query tokens; B gets 2.',325,410,p['ink'])
-    caption('The target verifies these prefixes; selection is not acceptance.',411,FRAMES,p['ink'])
-    s.frame_set(1)
-    out=Path(out)
-    out.mkdir(parents=True,exist_ok=True)
+def build(out):
+    global P
+    scene, P = setup()
+    for x in (0,18,36,54,72):
+        stage(x)
+    build_prefix()
+    build_budget()
+    build_rank()
+    build_verification()
+    build_system()
+    for obj in bpy.data.objects:
+        if obj.type in ('FONT', 'CURVE') or (obj.type == 'MESH' and not obj.name.startswith(('Page ', 'Page edge'))):
+            obj.visible_shadow = False
+    scene.frame_set(1)
+    output = Path(out)
+    output.mkdir(parents=True, exist_ok=True)
     bpy.ops.file.pack_all()
-    bpy.ops.wm.save_as_mainfile(filepath=str(out/'03-allocation.blend'))
+    bpy.ops.wm.save_as_mainfile(filepath=str(output / '03-allocation.blend'))
 
 
 if __name__ == '__main__':
-    args=sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else []
-    build(args[0] if args else ROOT/'public/blender/dspark-study')
+    args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
+    build(args[0] if args else ROOT / 'public/blender/dspark-study')
