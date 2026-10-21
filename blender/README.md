@@ -1,33 +1,29 @@
-# DeepInfer workshop animations
+# DeepInfer module animations
 
-Six editable, silent Blender scenes tell one conceptual story: a returning conversation reuses a saved prefix, reconstructs a missing sliding window, shares expert work, verifies draft tokens, overlaps CPU and GPU work, and finally zooms out to the surrounding production system. They are illustrations, not runtime traces, performance measurements, or literal cluster topology.
+The six editable Blender scenes follow the same four timed steps as the site’s source walkthroughs. Each step shows a moving module flow, an illustrative example, and the relevant lines from a pinned DeepInfer source or a corresponding vLLM/SGLang implementation. Production cache infrastructure is attributed to DeepSeek’s deployment Q&A.
 
-| Scene | Mechanism | Primary source |
+| Scene | Flow | Comparison |
 | --- | --- | --- |
-| `story-cache.blend` | Repeated prefix and the production shared KV archive | [KV cache storage](https://github.com/deepseek-ai/DeepInfer/blob/774ce244b87cc0eb8d4b94ab9f5de2ab22049f01/doc/inference_deployment_qa.md#L129) |
-| `story-replay.blend` | Approximate encoder SWA bounded replay after a local state miss | [KV recomputation](https://github.com/deepseek-ai/DeepInfer/blob/774ce244b87cc0eb8d4b94ab9f5de2ab22049f01/doc/inference_deployment_qa.md#L179) |
-| `story-experts.blend` | Hot-expert replicas on physical GPUs | [Expert placement policy](https://github.com/deepseek-ai/DeepInfer/blob/774ce244b87cc0eb8d4b94ab9f5de2ab22049f01/deepinfer/model_executor/eplb/policy.py#L73) |
-| `story-dspark.blend` | Confidence-guided draft selection and verification | [Speculative decoding](https://github.com/deepseek-ai/DeepInfer/blob/774ce244b87cc0eb8d4b94ab9f5de2ab22049f01/doc/inference_deployment_qa.md#L239) |
-| `story-overlap.blend` | CPU scheduling overlaps device work | [Asynchronous scheduling](https://github.com/deepseek-ai/DeepInfer/blob/774ce244b87cc0eb8d4b94ab9f5de2ab22049f01/doc/inference_deployment_qa.md#L266) |
-| `story-system.blend` | Zoom-out connecting the engine and production infrastructure | [System overview](https://github.com/deepseek-ai/DeepInfer/blob/774ce244b87cc0eb8d4b94ab9f5de2ab22049f01/doc/inference_deployment_qa.md#L23) |
+| `story-cache` | Prefix matching, 3FS fetch and swap-in, block ownership | vLLM block-hash lookup and SGLang radix matching |
+| `story-replay` | SWA miss, 128-token replay, attention visibility | vLLM bounded prefix replay |
+| `story-experts` | Expert load, replica selection, rank placement | vLLM expert placement policy |
+| `story-dspark` | Confidence remapping, cumulative probabilities, budget | vLLM adaptive verification |
+| `story-overlap` | Forward, previous result processing, sampling and deferral | SGLang overlap scheduler |
+| `story-system` | Request, scheduler, worker, connected mechanisms | vLLM engine loop |
 
-Open a `.blend` from [`public/blender/`](../public/blender/) in Blender and play frames 1–240 (24 fps). Geometry, materials, typography and keyframes remain editable. The gallery also provides individual MP4s, a continuous silent film and the full explanatory text. The shared production cache and complete prefill/decode service are not included in the released engine. Replay is approximate and the sample draft acceptance and work distribution are illustrative.
+Each scene runs for 384 frames at 24 fps: four phases of four seconds. The objects, text, highlighted lines, and motion remain editable in Blender. The snippets come from `public/source-data.json` and `public/peer-source-data.json`; path and line numbers are shown in each scene. The examples are illustrative and are not benchmark measurements.
 
-To recreate the scene files, using Blender 5.2:
-
-```sh
-for scene in cache replay experts dspark overlap system; do
-  blender --background --python "blender/scenes/story_${scene}.py" -- "$PWD/public/blender"
-done
-```
-
-To render a 24-fps preview with Eevee and FFmpeg:
+Rebuild with Blender 5.2 and FFmpeg, from the repository root:
 
 ```sh
-blender --background public/blender/story-cache.blend \
-  --python blender/render_workshop.py -- "$PWD/blender/.preview-frames/story-cache"
-ffmpeg -framerate 24 -i 'blender/.preview-frames/story-cache/frame-%04d.png' \
-  -c:v libx264 -pix_fmt yuv420p -movflags +faststart public/blender/story-cache.mp4
+BLENDER=/Applications/Blender.app/Contents/MacOS/Blender
+"$BLENDER" --background --python blender/build_module_stories.py -- public/blender
+python3 blender/render_all_modules.py "$BLENDER" public/blender
+"$BLENDER" --background --python blender/verify_scenes.py -- public/blender
 ```
 
-The older independent studies remain in the directory, but the site now presents the workshop sequence. No narration or sound was produced. Sample frames and file structure can be checked programmatically, but they do not establish continuous playback quality.
+The render script creates each chapter MP4 and poster, the combined film, and the downloadable scene archive. It renders two chapters at a time in temporary directories and removes the image sequences after encoding.
+
+The excerpts are from [DeepInfer at `774ce24`](https://github.com/deepseek-ai/DeepInfer/tree/774ce244b87cc0eb8d4b94ab9f5de2ab22049f01), [vLLM at `c835207`](https://github.com/vllm-project/vllm/tree/c835207fccae327531d7d64d2d6fe719a601477f), and [SGLang at `9308890`](https://github.com/sgl-project/sglang/tree/93088901fb413e5a81eeb81b675fc21b4adc5b1f), each under the [Apache License 2.0](licenses/APACHE-2.0.txt). Source paths and line numbers are displayed in the corresponding scenes; exact revision links are retained in `public/peer-source-data.json`.
+
+The Blender scenes embed [IBM Plex Mono](https://github.com/IBM/plex), distributed under the [SIL Open Font License](fonts/OFL.txt).

@@ -1,0 +1,326 @@
+{
+  "fps": 24,
+  "phaseFrames": 96,
+  "chapters": [
+    {
+      "id": "story-cache",
+      "beats": [
+        {
+          "title": "Match before routing",
+          "source": {
+            "path": "doc/inference_deployment_qa.md",
+            "lines": [
+              157
+            ]
+          }
+        },
+        {
+          "title": "Fetch and swap in KV",
+          "source": {
+            "path": "doc/inference_deployment_qa.md",
+            "lines": [
+              157
+            ]
+          }
+        },
+        {
+          "title": "Allocate and release blocks",
+          "source": {
+            "path": "csrc/engine/block_manager.hpp",
+            "lines": [
+              83,
+              84,
+              92,
+              98,
+              100,
+              101
+            ]
+          }
+        },
+        {
+          "title": "Compare prefix lookup",
+          "source": {
+            "path": "vllm/v1/core/kv_cache_manager.py",
+            "lines": [
+              295,
+              297,
+              298,
+              299
+            ],
+            "peerId": "cache-vllm-lookup"
+          }
+        }
+      ]
+    },
+    {
+      "id": "story-replay",
+      "beats": [
+        {
+          "title": "Block hit, SWA miss",
+          "source": {
+            "path": "doc/inference_deployment_qa.md",
+            "lines": [
+              191
+            ]
+          }
+        },
+        {
+          "title": "Replay the recent edge",
+          "source": {
+            "path": "doc/inference_deployment_qa.md",
+            "lines": [
+              185
+            ]
+          }
+        },
+        {
+          "title": "Clamp the attention window",
+          "source": {
+            "path": "csrc/engine/input_metadata/prepare_tensor_input_v4.cpp",
+            "lines": [
+              149,
+              150,
+              155
+            ]
+          }
+        },
+        {
+          "title": "Compare vLLM replay",
+          "source": {
+            "path": "vllm/v1/core/sched/scheduler.py",
+            "lines": [
+              3205,
+              3207,
+              3208,
+              3210,
+              3211,
+              3212
+            ],
+            "peerId": "replay-vllm-mark"
+          }
+        }
+      ]
+    },
+    {
+      "id": "story-experts",
+      "beats": [
+        {
+          "title": "Map logical to physical experts",
+          "source": {
+            "path": "deepinfer/model_executor/eplb/policy.py",
+            "lines": [
+              90,
+              97,
+              102,
+              103
+            ]
+          }
+        },
+        {
+          "title": "Choose a replica",
+          "source": {
+            "path": "deepinfer/model_executor/eplb/policy.py",
+            "lines": [
+              110,
+              111,
+              112,
+              117
+            ]
+          }
+        },
+        {
+          "title": "Place replicas across ranks",
+          "source": {
+            "path": "deepinfer/model_executor/eplb/policy.py",
+            "lines": [
+              58,
+              59,
+              60,
+              62,
+              63,
+              65
+            ]
+          }
+        },
+        {
+          "title": "Compare vLLM EPLB",
+          "source": {
+            "path": "vllm/distributed/eplb/policy/default.py",
+            "lines": [
+              96,
+              97,
+              98,
+              99,
+              100
+            ],
+            "peerId": "experts-vllm-replicate"
+          }
+        }
+      ]
+    },
+    {
+      "id": "story-dspark",
+      "beats": [
+        {
+          "title": "Remap confidence to the batch",
+          "source": {
+            "path": "deepinfer/model_executor/layers/tilelang_ops/schedule_mtp_varlen.py",
+            "lines": [
+              57,
+              60,
+              62,
+              65
+            ]
+          }
+        },
+        {
+          "title": "Compute prefix survival",
+          "source": {
+            "path": "deepinfer/model_executor/layers/tilelang_ops/schedule_mtp_varlen.py",
+            "lines": [
+              67,
+              68
+            ]
+          }
+        },
+        {
+          "title": "Rank and distribute extra work",
+          "source": {
+            "path": "deepinfer/model_executor/layers/tilelang_ops/schedule_mtp_varlen.py",
+            "lines": [
+              72,
+              85,
+              95,
+              98
+            ]
+          }
+        },
+        {
+          "title": "Compare vLLM selection",
+          "source": {
+            "path": "vllm/v1/worker/gpu/spec_decode/adaptive_verification.py",
+            "lines": [
+              69,
+              70,
+              71,
+              72
+            ],
+            "peerId": "dspark-vllm-budget"
+          }
+        }
+      ]
+    },
+    {
+      "id": "story-overlap",
+      "beats": [
+        {
+          "title": "Schedule and launch forward",
+          "source": {
+            "path": "deepinfer/worker/worker.py",
+            "lines": [
+              120,
+              121,
+              122,
+              123,
+              124
+            ]
+          }
+        },
+        {
+          "title": "Process the previous step",
+          "source": {
+            "path": "deepinfer/worker/worker.py",
+            "lines": [
+              143,
+              144
+            ]
+          }
+        },
+        {
+          "title": "Sample and defer",
+          "source": {
+            "path": "deepinfer/worker/worker.py",
+            "lines": [
+              183,
+              184,
+              185,
+              186,
+              187
+            ]
+          }
+        },
+        {
+          "title": "Compare SGLang overlap",
+          "source": {
+            "path": "python/sglang/srt/managers/scheduler.py",
+            "lines": [
+              2067,
+              2068,
+              2069,
+              2070
+            ],
+            "peerId": "overlap-sglang-previous"
+          }
+        }
+      ]
+    },
+    {
+      "id": "story-system",
+      "beats": [
+        {
+          "title": "Add a request",
+          "source": {
+            "path": "deepinfer/entrypoints/llm.py",
+            "lines": [
+              129,
+              130,
+              131,
+              135,
+              142
+            ]
+          }
+        },
+        {
+          "title": "Choose prefill or decode",
+          "source": {
+            "path": "csrc/engine/scheduler.hpp",
+            "lines": [
+              288,
+              289,
+              291,
+              292,
+              294,
+              295
+            ]
+          }
+        },
+        {
+          "title": "Connect the mechanisms",
+          "source": {
+            "path": "deepinfer/worker/worker.py",
+            "lines": [
+              121,
+              122,
+              123,
+              124
+            ]
+          }
+        },
+        {
+          "title": "Compare the vLLM loop",
+          "source": {
+            "path": "vllm/v1/engine/core.py",
+            "lines": [
+              651,
+              652,
+              658,
+              659,
+              660
+            ],
+            "peerId": "system-vllm-execute"
+          }
+        }
+      ]
+    }
+  ]
+}

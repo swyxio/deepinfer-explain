@@ -1,0 +1,562 @@
+{
+  "cache-vllm-lookup": {
+    "system": "vLLM",
+    "path": "vllm/v1/core/kv_cache_manager.py",
+    "start": 289,
+    "lines": [
+      "        # NOTE: When all tokens hit the cache, we must recompute the last token",
+      "        # to obtain logits. Thus, set max_cache_hit_length to prompt_length - 1.",
+      "        # This can trigger recomputation of an entire block, rather than just",
+      "        # the single last token, because allocate_slots() requires",
+      "        # num_computed_tokens to be block-size aligned. Removing this limitation",
+      "        # could slightly improve performance in the future.",
+      "        max_cache_hit_length = request.num_tokens - 1",
+      "        computed_blocks, num_new_computed_tokens, num_uncached = (",
+      "            self.coordinator.find_longest_cache_hit(",
+      "                request.block_hashes, max_cache_hit_length",
+      "            )"
+    ],
+    "url": "https://github.com/vllm-project/vllm/blob/c835207fccae327531d7d64d2d6fe719a601477f/vllm/v1/core/kv_cache_manager.py#L289-L299"
+  },
+  "cache-sglang-match": {
+    "system": "SGLang",
+    "path": "python/sglang/srt/mem_cache/radix_cache.py",
+    "start": 400,
+    "lines": [
+      "        key = params.key",
+      "        key, _ = key.maybe_to_bigram_view(self.is_eagle)",
+      "",
+      "        if self.disable or len(key) == 0:",
+      "            return self._empty_match_result",
+      "",
+      "        key = key.page_aligned(self.page_size)",
+      "",
+      "        if len(key) == 0:",
+      "            return self._empty_match_result",
+      "",
+      "        value, last_node = self._match_prefix_helper(self.root_node, key)",
+      "        return MatchResult(",
+      "            device_prefix_len=sum(len(v) for v in value),",
+      "            last_device_node=last_node,",
+      "            last_host_node=last_node,",
+      "            best_match_node=last_node,",
+      "        )"
+    ],
+    "url": "https://github.com/sgl-project/sglang/blob/93088901fb413e5a81eeb81b675fc21b4adc5b1f/python/sglang/srt/mem_cache/radix_cache.py#L400-L417"
+  },
+  "cache-sglang-traverse": {
+    "system": "SGLang",
+    "path": "python/sglang/srt/mem_cache/radix_cache.py",
+    "start": 655,
+    "lines": [
+      "        child_key = key.child_key(self.page_size)",
+      "",
+      "        value = []",
+      "        while len(key) > 0 and child_key in node.children.keys():",
+      "            child = node.children[child_key]",
+      "            child.last_access_time = access_time",
+      "            prefix_len = child.key.match(key, page_size=self.page_size)",
+      "            if prefix_len < len(child.key):",
+      "                new_node = self._split_node(child.key, child, prefix_len)",
+      "                value.append(new_node.value)",
+      "                node = new_node",
+      "                break",
+      "            else:",
+      "                value.append(child.value)",
+      "                node = child",
+      "                key = key[prefix_len:]",
+      "",
+      "                if len(key):",
+      "                    child_key = key.child_key(self.page_size)",
+      "",
+      "        return value, node"
+    ],
+    "url": "https://github.com/sgl-project/sglang/blob/93088901fb413e5a81eeb81b675fc21b4adc5b1f/python/sglang/srt/mem_cache/radix_cache.py#L655-L675"
+  },
+  "replay-vllm-mark": {
+    "system": "vLLM",
+    "path": "vllm/v1/core/sched/scheduler.py",
+    "start": 3205,
+    "lines": [
+      "        if not self.prefix_replay_tokens:",
+      "            return 0",
+      "        if window_loaded:",
+      "            request.replay_start = 0",
+      "            return 0",
+      "        num_replay_tokens = min(self.prefix_replay_tokens, num_hit_tokens)",
+      "        request.replay_start = num_hit_tokens - num_replay_tokens",
+      "        return num_replay_tokens"
+    ],
+    "url": "https://github.com/vllm-project/vllm/blob/c835207fccae327531d7d64d2d6fe719a601477f/vllm/v1/core/sched/scheduler.py#L3205-L3212"
+  },
+  "replay-vllm-schedule": {
+    "system": "vLLM",
+    "path": "vllm/v1/core/sched/scheduler.py",
+    "start": 1173,
+    "lines": [
+      "                    request_token_budget = min(token_budget, input_budget - draft_slots)",
+      "                    if did_prefix_cache_lookup:",
+      "                        # Fresh admission: local and/or sync external hit.",
+      "                        num_replay_tokens = self._mark_prefix_replay(",
+      "                            request, num_computed_tokens, window_loaded",
+      "                        )",
+      "                        num_computed_tokens -= num_replay_tokens"
+    ],
+    "url": "https://github.com/vllm-project/vllm/blob/c835207fccae327531d7d64d2d6fe719a601477f/vllm/v1/core/sched/scheduler.py#L1173-L1179"
+  },
+  "replay-vllm-hybrid": {
+    "system": "vLLM",
+    "path": "vllm/v1/core/kv_cache_coordinator.py",
+    "start": 891,
+    "lines": [
+      "                if drop_eagle_block:",
+      "                    eagle_verified.add(idx)",
+      "                elif _new_hit_length < curr_hit_length:",
+      "                    # length shrunk; invalidate previous eagle verifications",
+      "                    eagle_verified.clear()",
+      "                curr_hit_length = _new_hit_length",
+      "                for group_id, blocks in zip(group_ids, hit_blocks):",
+      "                    hit_blocks_by_group[group_id] = blocks",
+      "                    hit_length_by_group[group_id] = _new_hit_length",
+      "",
+      "                longest_hit_length = max(longest_hit_length, curr_hit_length)",
+      "",
+      "            if curr_hit_length >= hit_length:",
+      "                break",
+      "            hit_length = curr_hit_length"
+    ],
+    "url": "https://github.com/vllm-project/vllm/blob/c835207fccae327531d7d64d2d6fe719a601477f/vllm/v1/core/kv_cache_coordinator.py#L891-L905"
+  },
+  "experts-vllm-replicate": {
+    "system": "vLLM",
+    "path": "vllm/distributed/eplb/policy/default.py",
+    "start": 90,
+    "lines": [
+      "        n, num_log = weight.shape",
+      "        num_redundant = num_phy - num_log",
+      "        assert num_redundant >= 0",
+      "        phy2log = np.tile(np.arange(num_phy, dtype=np.int64), (n, 1))",
+      "        logcnt = np.ones((n, num_log), dtype=np.int64)",
+      "        arangen = np.arange(n, dtype=np.int64)",
+      "        for i in range(num_log, num_phy):",
+      "            redundant_indices = np.argmax(weight / logcnt, axis=-1)",
+      "            phy2log[:, i] = redundant_indices",
+      "            logcnt[arangen, redundant_indices] += 1",
+      "        return phy2log, logcnt"
+    ],
+    "url": "https://github.com/vllm-project/vllm/blob/c835207fccae327531d7d64d2d6fe719a601477f/vllm/distributed/eplb/policy/default.py#L90-L100"
+  },
+  "experts-vllm-pack": {
+    "system": "vLLM",
+    "path": "vllm/distributed/eplb/policy/default.py",
+    "start": 55,
+    "lines": [
+      "        # Run the packing algorithm",
+      "        for layer_idx in range(num_layers):",
+      "            weights_row = pack_weights[layer_idx]",
+      "            items_row = pack_items[layer_idx]",
+      "",
+      "            for group in indices[layer_idx]:",
+      "                # Pick the lightest pack; full packs are masked out by inf.",
+      "                pack = int(np.argmin(weights_row))",
+      "",
+      "                pack_index[layer_idx, group] = pack",
+      "                rank_in_pack[layer_idx, group] = items_row[pack]",
+      "                weights_row[pack] += weight[layer_idx, group]",
+      "                items_row[pack] += 1",
+      "                if items_row[pack] == groups_per_pack:",
+      "                    # Mark as unavailable for future selections.",
+      "                    weights_row[pack] = np.inf"
+    ],
+    "url": "https://github.com/vllm-project/vllm/blob/c835207fccae327531d7d64d2d6fe719a601477f/vllm/distributed/eplb/policy/default.py#L55-L70"
+  },
+  "dspark-vllm-score": {
+    "system": "vLLM",
+    "path": "vllm/v1/worker/gpu/spec_decode/adaptive_verification.py",
+    "start": 64,
+    "lines": [
+      "    survival = confidence_probs[idx_mapping].cumprod(dim=1)",
+      "    steps = torch.arange(num_steps, device=survival.device)",
+      "    # Out-of-range slots score -inf so they never outrank a real draft.",
+      "    out_of_range = steps[None, :] >= capacities[:, None]",
+      "    survival = survival.masked_fill(out_of_range, -float(\"inf\"))"
+    ],
+    "url": "https://github.com/vllm-project/vllm/blob/c835207fccae327531d7d64d2d6fe719a601477f/vllm/v1/worker/gpu/spec_decode/adaptive_verification.py#L64-L68"
+  },
+  "dspark-vllm-budget": {
+    "system": "vLLM",
+    "path": "vllm/v1/worker/gpu/spec_decode/adaptive_verification.py",
+    "start": 69,
+    "lines": [
+      "    flat = survival.flatten()",
+      "    winners = flat.topk(draft_budget).indices",
+      "    admitted = torch.zeros_like(flat, dtype=torch.bool).index_fill_(0, winners, True)",
+      "    torch.sum(admitted.view_as(survival), dim=1, dtype=capacities.dtype, out=capacities)"
+    ],
+    "url": "https://github.com/vllm-project/vllm/blob/c835207fccae327531d7d64d2d6fe719a601477f/vllm/v1/worker/gpu/spec_decode/adaptive_verification.py#L69-L72"
+  },
+  "overlap-sglang-plan": {
+    "system": "SGLang",
+    "path": "python/sglang/srt/managers/scheduler.py",
+    "start": 2033,
+    "lines": [
+      "            # Get the next batch to run",
+      "            plan = self.get_next_batch_to_run(",
+      "                running_batch=self.running_batch, last_batch=self.last_batch",
+      "            )",
+      "            self.running_batch = plan.running_batch",
+      "            batch = plan.batch_to_run",
+      "            self.cur_batch_for_debug = batch",
+      "            disable_overlap_for_batch = self.is_disable_overlap_for_batch(",
+      "                batch, last_batch=self.last_batch",
+      "            )"
+    ],
+    "url": "https://github.com/sgl-project/sglang/blob/93088901fb413e5a81eeb81b675fc21b4adc5b1f/python/sglang/srt/managers/scheduler.py#L2033-L2042"
+  },
+  "overlap-sglang-launch": {
+    "system": "SGLang",
+    "path": "python/sglang/srt/managers/scheduler.py",
+    "start": 2057,
+    "lines": [
+      "            # Launch the current batch",
+      "            if batch:",
+      "                batch_result = self.run_batch(batch)",
+      "                # Fence result processing behind this forward's shared reads.",
+      "                self._apply_war_barrier()",
+      "                self.result_queue.append((batch.copy(), batch_result))"
+    ],
+    "url": "https://github.com/sgl-project/sglang/blob/93088901fb413e5a81eeb81b675fc21b4adc5b1f/python/sglang/srt/managers/scheduler.py#L2057-L2062"
+  },
+  "overlap-sglang-previous": {
+    "system": "SGLang",
+    "path": "python/sglang/srt/managers/scheduler.py",
+    "start": 2067,
+    "lines": [
+      "            # Process the last batch",
+      "            if self.last_batch:",
+      "                if not disable_overlap_for_batch:",
+      "                    pop_and_process()"
+    ],
+    "url": "https://github.com/sgl-project/sglang/blob/93088901fb413e5a81eeb81b675fc21b4adc5b1f/python/sglang/srt/managers/scheduler.py#L2067-L2070"
+  },
+  "overlap-sglang-sample": {
+    "system": "SGLang",
+    "path": "python/sglang/srt/managers/scheduler.py",
+    "start": 2075,
+    "lines": [
+      "            # Run sample of the current batch",
+      "            # It depends on the result of the last batch (e.g., grammar), so we run it after the last batch is processed.",
+      "            if self.is_generation:",
+      "                self.launch_batch_sample_if_needed(batch_result, batch)"
+    ],
+    "url": "https://github.com/sgl-project/sglang/blob/93088901fb413e5a81eeb81b675fc21b4adc5b1f/python/sglang/srt/managers/scheduler.py#L2075-L2078"
+  },
+  "system-vllm-schedule": {
+    "system": "vLLM",
+    "path": "vllm/v1/engine/core.py",
+    "start": 647,
+    "lines": [
+      "        # Check for any requests remaining in the scheduler - unfinished,",
+      "        # or finished and not yet removed from the batch.",
+      "        if not self.scheduler.has_requests():",
+      "            return {}, False",
+      "        scheduler_output = self.scheduler.schedule(self._should_throttle_prefills())"
+    ],
+    "url": "https://github.com/vllm-project/vllm/blob/c835207fccae327531d7d64d2d6fe719a601477f/vllm/v1/engine/core.py#L647-L651"
+  },
+  "system-vllm-execute": {
+    "system": "vLLM",
+    "path": "vllm/v1/engine/core.py",
+    "start": 651,
+    "lines": [
+      "        scheduler_output = self.scheduler.schedule(self._should_throttle_prefills())",
+      "        future = self.model_executor.execute_model(scheduler_output, non_block=True)",
+      "        grammar_output = self.scheduler.get_grammar_bitmask(scheduler_output)",
+      "        with (",
+      "            self.capture_iteration_details(scheduler_output) as iteration_details,",
+      "            self.log_error_detail(scheduler_output),",
+      "        ):",
+      "            model_output = future.result()",
+      "            if model_output is None:",
+      "                model_output = self.model_executor.sample_tokens(grammar_output)"
+    ],
+    "url": "https://github.com/vllm-project/vllm/blob/c835207fccae327531d7d64d2d6fe719a601477f/vllm/v1/engine/core.py#L651-L660"
+  },
+  "system-vllm-complete": {
+    "system": "vLLM",
+    "path": "vllm/v1/engine/core.py",
+    "start": 662,
+    "lines": [
+      "        # Before processing the model output, process any aborts that happened",
+      "        # during the model execution.",
+      "        self._process_aborts_queue()",
+      "        engine_core_outputs = self.scheduler.update_from_output(",
+      "            scheduler_output, model_output",
+      "        )",
+      "        self._attach_iteration_details(engine_core_outputs, iteration_details)",
+      "        self._attach_weight_version(engine_core_outputs)",
+      "",
+      "        return engine_core_outputs, scheduler_output.total_num_scheduled_tokens > 0"
+    ],
+    "url": "https://github.com/vllm-project/vllm/blob/c835207fccae327531d7d64d2d6fe719a601477f/vllm/v1/engine/core.py#L662-L671"
+  },
+  "system-vllm-budget": {
+    "system": "vLLM",
+    "path": "vllm/v1/core/sched/scheduler.py",
+    "start": 639,
+    "lines": [
+      "        req_to_new_blocks: dict[str, KVCacheBlocks] = {}",
+      "        num_scheduled_tokens: dict[str, int] = {}",
+      "        token_budget = self.max_num_scheduled_tokens",
+      "        spec = self.vllm_config.speculative_config",
+      "        draft_slots = spec.max_num_new_slots_for_drafting if spec is not None else 0",
+      "        input_budget = self.scheduler_config.max_num_batched_tokens"
+    ],
+    "url": "https://github.com/vllm-project/vllm/blob/c835207fccae327531d7d64d2d6fe719a601477f/vllm/v1/core/sched/scheduler.py#L639-L644"
+  },
+  "replay-sglang-run": {
+    "system": "SGLang",
+    "path": "python/sglang/srt/managers/tp_worker.py",
+    "start": 620,
+    "lines": [
+      "            if get_exec().features.enable_encoder_swa_bounded_replay:",
+      "                from sglang.srt.model_executor.encoder_swa_replay import (",
+      "                    apply_folded_extend,",
+      "                    fold_encoder_swa_replay,",
+      "                    run_encoder_swa_replay,",
+      "                )",
+      "",
+      "                if self.model_runner.attn_backend.folds_encoder_swa_replay:",
+      "                    # Hits extend from their replay start, rebuilding the window in-pass.",
+      "                    folded = fold_encoder_swa_replay(self, batch)",
+      "                else:",
+      "                    # Replay reads restored main/indexer KV before the normal extend.",
+      "                    run_encoder_swa_replay(self, batch)"
+    ],
+    "url": "https://github.com/sgl-project/sglang/blob/93088901fb413e5a81eeb81b675fc21b4adc5b1f/python/sglang/srt/managers/tp_worker.py#L620-L632"
+  },
+  "experts-sglang-vec": {
+    "system": "SGLang",
+    "path": "python/sglang/srt/eplb/eplb_algorithms/deepseek_vec.py",
+    "start": 94,
+    "lines": [
+      "    tokens_per_expert_all_diff = tokens_per_expert + arange_num_logical_experts * 1e-4",
+      "    for i in range(num_redundancy_experts_per_group):",
+      "        score = (",
+      "            tokens_per_expert_all_diff / logical_count",
+      "        )  # NOTE: Values in score must be different from each other",
+      "        score1 = tokens_per_expert / (logical_count + 1)",
+      "        score = score.view(",
+      "            num_steps, num_moe_layers, num_chunks, num_logical_experts_per_group",
+      "        )",
+      "        score1 = score1.view_as(score)",
+      "        values, indices = score.max(-1, keepdim=True)",
+      "        values = values.expand_as(score).contiguous()",
+      "        score.scatter_(-1, indices, score1.gather(-1, indices))",
+      "        values.scatter_(-1, indices, score.max(-1, keepdim=True).values)",
+      "        redundancy_indices = values.sum(0).argmin(-1)"
+    ],
+    "url": "https://github.com/sgl-project/sglang/blob/93088901fb413e5a81eeb81b675fc21b4adc5b1f/python/sglang/srt/eplb/eplb_algorithms/deepseek_vec.py#L94-L108"
+  },
+  "experts-sglang-classic": {
+    "system": "SGLang",
+    "path": "python/sglang/srt/eplb/eplb_algorithms/deepseek.py",
+    "start": 74,
+    "lines": [
+      "    phy2log = torch.arange(num_phy, dtype=torch.int64, device=device).repeat(n, 1)",
+      "    rank = torch.zeros(n, num_phy, dtype=torch.int64, device=device)",
+      "    logcnt = torch.ones(n, num_log, dtype=torch.int64, device=device)",
+      "    arangen = torch.arange(n, dtype=torch.int64, device=device)",
+      "    for i in range(num_log, num_phy):",
+      "        redundant_indices = (weight / logcnt).max(dim=-1).indices",
+      "        phy2log[:, i] = redundant_indices",
+      "        rank[:, i] = logcnt[arangen, redundant_indices]",
+      "        logcnt[arangen, redundant_indices] += 1",
+      "    return phy2log, rank, logcnt"
+    ],
+    "url": "https://github.com/sgl-project/sglang/blob/93088901fb413e5a81eeb81b675fc21b4adc5b1f/python/sglang/srt/eplb/eplb_algorithms/deepseek.py#L74-L83"
+  },
+  "experts-sglang-select": {
+    "system": "SGLang",
+    "path": "python/sglang/srt/eplb/eplb_algorithms/__init__.py",
+    "start": 27,
+    "lines": [
+      "    if algorithm in [EplbAlgorithm.deepseek, EplbAlgorithm.deepseek_hierarchical]:",
+      "        return deepseek.rebalance_experts(",
+      "            weight=tokens_per_expert.sum(dim=0),",
+      "            num_replicas=num_physical_experts,",
+      "            num_groups=num_groups,",
+      "            num_nodes=num_nodes,",
+      "            num_gpus=num_physical_experts // num_local_physical_experts,",
+      "            enable_hierarchical=algorithm == EplbAlgorithm.deepseek_hierarchical,",
+      "        )",
+      "",
+      "    if algorithm in [",
+      "        EplbAlgorithm.deepseek_vec,",
+      "        EplbAlgorithm.deepseek_vec_hierarchical,",
+      "    ]:",
+      "        return deepseek_vec.rebalance_experts(",
+      "            tokens_per_expert=tokens_per_expert,",
+      "            num_physical_experts=num_physical_experts,",
+      "            num_local_physical_experts=num_local_physical_experts,",
+      "            num_groups=num_groups,",
+      "            num_nodes=num_nodes,",
+      "            enable_hierarchical=algorithm == EplbAlgorithm.deepseek_vec_hierarchical,"
+    ],
+    "url": "https://github.com/sgl-project/sglang/blob/93088901fb413e5a81eeb81b675fc21b4adc5b1f/python/sglang/srt/eplb/eplb_algorithms/__init__.py#L27-L47"
+  },
+  "system-sglang-plan": {
+    "system": "SGLang",
+    "path": "python/sglang/srt/managers/scheduler.py",
+    "start": 1982,
+    "lines": [
+      "            # Receive requests",
+      "            self.ingest_requests()",
+      "            if self._engine_paused:",
+      "                self._record_scheduler_state_for_paused_engine()",
+      "                continue",
+      "",
+      "            # Get the next batch to run",
+      "            plan = self.get_next_batch_to_run(",
+      "                running_batch=self.running_batch, last_batch=self.last_batch",
+      "            )",
+      "            self.running_batch = plan.running_batch",
+      "            batch = plan.batch_to_run"
+    ],
+    "url": "https://github.com/sgl-project/sglang/blob/93088901fb413e5a81eeb81b675fc21b4adc5b1f/python/sglang/srt/managers/scheduler.py#L1982-L1993"
+  },
+  "system-sglang-run": {
+    "system": "SGLang",
+    "path": "python/sglang/srt/managers/scheduler.py",
+    "start": 1996,
+    "lines": [
+      "            # Launch the current batch",
+      "            if batch:",
+      "                result = self.run_batch(batch)",
+      "                self.process_batch_result(batch, result)"
+    ],
+    "url": "https://github.com/sgl-project/sglang/blob/93088901fb413e5a81eeb81b675fc21b4adc5b1f/python/sglang/srt/managers/scheduler.py#L1996-L1999"
+  },
+  "system-sglang-forward": {
+    "system": "SGLang",
+    "path": "python/sglang/srt/managers/tp_worker.py",
+    "start": 655,
+    "lines": [
+      "        if self.pp_group.is_last_rank:",
+      "            out = self.model_runner.forward(",
+      "                forward_batch,",
+      "                pp_proxy_tensors=pp_proxy_tensors,",
+      "            )",
+      "            logits_output, can_run_cuda_graph = out.logits_output, out.can_run_graph"
+    ],
+    "url": "https://github.com/sgl-project/sglang/blob/93088901fb413e5a81eeb81b675fc21b4adc5b1f/python/sglang/srt/managers/tp_worker.py#L655-L660"
+  },
+  "overlap-vllm-launch": {
+    "system": "vLLM",
+    "path": "vllm/v1/engine/core.py",
+    "start": 706,
+    "lines": [
+      "        model_executed = False",
+      "        deferred_scheduler_output = None",
+      "        if self.scheduler.has_requests():",
+      "            scheduler_output = self.scheduler.schedule(self._should_throttle_prefills())",
+      "            with self.log_error_detail(scheduler_output):",
+      "                exec_future = self.model_executor.execute_model(",
+      "                    scheduler_output, non_block=True",
+      "                )"
+    ],
+    "url": "https://github.com/vllm-project/vllm/blob/c835207fccae327531d7d64d2d6fe719a601477f/vllm/v1/engine/core.py#L706-L713"
+  },
+  "overlap-vllm-enqueue": {
+    "system": "vLLM",
+    "path": "vllm/v1/engine/core.py",
+    "start": 735,
+    "lines": [
+      "            if not deferred_scheduler_output:",
+      "                # Add this step's future to the queue.",
+      "                batch_queue.appendleft((future, scheduler_output, exec_future))",
+      "                if len(batch_queue) < self.batch_queue_size and (",
+      "                    model_executed or self.scheduler.has_requests()",
+      "                ):",
+      "                    # Don't block on next worker response unless the queue is full",
+      "                    # or there are no more requests to schedule.",
+      "                    return None, model_executed"
+    ],
+    "url": "https://github.com/vllm-project/vllm/blob/c835207fccae327531d7d64d2d6fe719a601477f/vllm/v1/engine/core.py#L735-L743"
+  },
+  "overlap-vllm-complete": {
+    "system": "vLLM",
+    "path": "vllm/v1/engine/core.py",
+    "start": 751,
+    "lines": [
+      "        # Block until the next result is available.",
+      "        future, scheduler_output, exec_model_fut = batch_queue.pop()",
+      "        with (",
+      "            self.capture_iteration_details(scheduler_output) as iteration_details,",
+      "            self.log_error_detail(scheduler_output),",
+      "        ):",
+      "            model_output = future.result()",
+      "            if model_output is None:",
+      "                # None from sample_tokens() implies that the original execute_model()",
+      "                # call failed - raise that exception.",
+      "                exec_model_fut.result()",
+      "                raise RuntimeError(\"unexpected error\")",
+      "",
+      "        # Before processing the model output, process any aborts that happened",
+      "        # during the model execution.",
+      "        self._process_aborts_queue()",
+      "        engine_core_outputs = self.scheduler.update_from_output(",
+      "            scheduler_output, model_output"
+    ],
+    "url": "https://github.com/vllm-project/vllm/blob/c835207fccae327531d7d64d2d6fe719a601477f/vllm/v1/engine/core.py#L751-L768"
+  },
+  "overlap-vllm-placeholders": {
+    "system": "vLLM",
+    "path": "vllm/v1/core/sched/async_scheduler.py",
+    "start": 40,
+    "lines": [
+      "            # The request will generate num_sampled_tokens_per_step new tokens",
+      "            # plus num_spec_tokens in this scheduling step. Diffusion has no AR",
+      "            # bonus token (num_sampled_tokens_per_step == 0) — only the canvas",
+      "            # (spec) tokens.",
+      "            cur_num_spec_tokens = len(spec_decode_tokens.get(req_id, ()))",
+      "            request.num_output_placeholders += (",
+      "                self.num_sampled_tokens_per_step + cur_num_spec_tokens",
+      "            )",
+      "            # Add placeholders for the new draft/spec tokens.",
+      "            # We will update the actual spec token ids in the worker process.",
+      "            request.spec_token_ids = self._spec_token_placeholders"
+    ],
+    "url": "https://github.com/vllm-project/vllm/blob/c835207fccae327531d7d64d2d6fe719a601477f/vllm/v1/core/sched/async_scheduler.py#L40-L50"
+  },
+  "dspark-sglang-survival": {
+    "system": "SGLang",
+    "path": "python/sglang/srt/speculative/dspark_components/dspark_planner.py",
+    "start": 1013,
+    "lines": [
+      "        k_survival = torch.cumprod(lagged_confidence.to(torch.float32), dim=1)",
+      "        current_gen = current_generation.to(torch.int64)",
+      "        fresh = (",
+      "            (current_gen >= 1) & (lagged_generation.to(torch.int64) == current_gen)",
+      "        ).view(-1, 1)",
+      "        return torch.where(fresh, k_survival, torch.ones_like(k_survival))"
+    ],
+    "url": "https://github.com/sgl-project/sglang/blob/93088901fb413e5a81eeb81b675fc21b4adc5b1f/python/sglang/srt/speculative/dspark_components/dspark_planner.py#L1013-L1018"
+  },
+  "dspark-sglang-allocate": {
+    "system": "SGLang",
+    "path": "python/sglang/srt/speculative/dspark_components/dspark_planner.py",
+    "start": 535,
+    "lines": [
+      "        if self._budget_planner is None or confidence is None or budget is None:",
+      "            return None",
+      "        verify_lens = ScheduleVerifyLensTopk.execute(",
+      "            confidence=confidence,",
+      "            budget=budget,",
+      "            cfg=self._schedule_cfg,",
+      "        ).to(device=device, dtype=torch.int32)",
+      "        self._tp_sync.sync(SpecTpSyncSite.DSPARK_PLAN, verify_lens)"
+    ],
+    "url": "https://github.com/sgl-project/sglang/blob/93088901fb413e5a81eeb81b675fc21b4adc5b1f/python/sglang/srt/speculative/dspark_components/dspark_planner.py#L535-L542"
+  }
+}

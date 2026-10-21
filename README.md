@@ -8,7 +8,7 @@ The models and hardware explorer compares a selection of architectures from [Seb
 
 Five visual stories use playable, step-by-step diagrams to explain cache reuse, disaggregation, bounded replay, speculative verification and scheduling overlap. A curated set of public launch posts provides context; the diagrams are conceptual and link to the source and research behind the claims.
 
-The Blender lab follows a request through the engine with a source-linked execution path, six code excerpts, comparisons with vLLM and SGLang, and five connected animations plus a system overview. The cache chapter traces production prefix matching, 3FS fetch, swap-in and bounded replay. See [the Blender studies](blender/README.md) for the editable scene files and rebuild instructions.
+The Blender lab follows a request through six animated module walkthroughs. Each four-step video synchronizes a source-line highlight, a conceptual explanation and a comparison with pinned vLLM or SGLang code. The cache chapter traces production prefix matching, 3FS fetch and swap-in; later chapters cover replay, expert placement, speculative verification, overlap and the engine loop. See [the Blender studies](blender/README.md) for editable scene files and rebuild instructions.
 
 ## Run locally
 
@@ -17,7 +17,7 @@ pnpm install
 pnpm dev
 ```
 
-`pnpm build` produces a static site in `dist/`; `pnpm preview` serves that build. The app and its checked-in source snapshot build without access to the DeepInfer checkout or network APIs (the optional web fonts have system fallbacks). Source text is fetched when the Blender lab, an execution map or a file is opened. Pages use path URLs (for example `/codemap` and `/file/deepinfer/engine/llm_engine.py/L881`); old fragment links redirect to their corresponding paths. Chapter and research filters are shareable via query parameters.
+`pnpm build` produces a static site in `dist/`; `pnpm preview` serves that build. The app and its checked-in source snapshot build without access to the DeepInfer checkout or network APIs (the optional web fonts have system fallbacks). Source text is fetched when the Blender lab, an execution map or a file is opened. The Blender lab also loads a checked-in snapshot of comparison excerpts. Pages use path URLs (for example `/codemap` and `/file/deepinfer/engine/llm_engine.py/L881`); old fragment links redirect to their corresponding paths. Chapter and research filters are shareable via query parameters.
 
 ## Deploy
 
@@ -27,4 +27,4 @@ The production site runs as the `deepinfer-explain` Cloudflare Worker at `inf.la
 
 To regenerate and validate the source references, put a clean checkout of DeepInfer at `./DeepInfer` at the pinned commit, then run `pnpm verify:sources`. The scripts validate the revision, complete file/folder coverage, chapter links, request-flow graph and research references, symbol, trace, article, model-support and visual-story links, and translation note placement, and write `src/snippets.json`, `src/source-manifest.json` and `public/source-data.json`. Curated notes live in `src/file-notes.ts`, `src/symbol-notes-*.ts`, `src/request-flow.ts`, `src/execution-paths.ts`, `src/article-notes.ts`, `src/modules.ts`, `src/model-support.ts` and `src/visual-stories-data.ts`; the supplied translation and its annotation placement live in `src/article-translation.txt` and `src/translation.ts`, with diagrams in `src/article-diagrams.tsx`. Review the annotations and source links when changing the revision; a valid line number does not establish semantic accuracy or prove a runtime branch was executed.
 
-Source excerpts are from [DeepInfer](https://github.com/deepseek-ai/DeepInfer), licensed under the [Apache License 2.0](public/DEEPINFER-LICENSE.txt). The source remains the authoritative reference. This project is independent of DeepSeek.
+Source excerpts are from [DeepInfer](https://github.com/deepseek-ai/DeepInfer), [vLLM](https://github.com/vllm-project/vllm) and [SGLang](https://github.com/sgl-project/sglang), each licensed under the [Apache License 2.0](public/DEEPINFER-LICENSE.txt). Comparison excerpts are pinned to vLLM `c835207fccae327531d7d64d2d6fe719a601477f` and SGLang `93088901fb413e5a81eeb81b675fc21b4adc5b1f`; each links to its upstream file and lines. This project is independent of those projects.

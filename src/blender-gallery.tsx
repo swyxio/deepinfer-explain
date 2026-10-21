@@ -1,7 +1,8 @@
-import { Fragment, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { ArrowRight, ArrowUpRight, Download, FileCode2, MessageCircle } from 'lucide-react';
-import { blenderScenes, type CodeSample, type StoryLink } from './blender-story';
+import { blenderScenes, type StoryLink } from './blender-story';
+import { ModuleAnimation, type PeerSample } from './module-animation';
 import { fileRoute } from './routes';
 import './blender-gallery.css';
 
@@ -15,20 +16,6 @@ function Evidence({ link }: { link: StoryLink }) {
   return link.external
     ? <a href={link.href} target="_blank" rel="noreferrer">{link.label} <ArrowUpRight size={13} aria-hidden="true"/></a>
     : <Link to={link.href}>{link.label} <ArrowUpRight size={13} aria-hidden="true"/></Link>;
-}
-
-function CodeExcerpt({ sample, source, error }: { sample: CodeSample; source?: string; error: boolean }) {
-  const lines = source?.split('\n');
-  const href = (line: number) => fileRoute(sample.path, line);
-  return <section className="story-code" aria-label={sample.title}>
-    <div className="story-code-head"><div><span>CODE WALKTHROUGH</span><h3>{sample.title}</h3></div><Link to={href(sample.ranges[0][0])}>Open annotated file <ArrowUpRight size={13}/></Link></div>
-    <Link className="story-code-path" to={href(sample.ranges[0][0])}>{sample.path}</Link>
-    {lines ? <pre><code>{sample.ranges.map(([start, end], rangeIndex) => <Fragment key={start}>
-      {rangeIndex > 0 && <span className="story-code-gap" aria-label="Lines omitted">···</span>}
-      {lines.slice(start - 1, end).map((line, index) => <span className="story-code-line" key={start + index}><Link to={href(start + index)} aria-label={`Open line ${start + index}`}>{start + index}</Link><span>{line || ' '}</span></span>)}
-    </Fragment>)}</code></pre> : <p className="story-code-loading">{error ? 'Source excerpt unavailable. Open the annotated file above.' : 'Loading source excerpt…'}</p>}
-    <p className="story-code-insight">{sample.insight}</p>
-  </section>;
 }
 
 function RequestPath() {
@@ -66,6 +53,8 @@ function CachePath() {
 export function BlenderGallery({ target }: { target?: string }) {
   const [sources, setSources] = useState<Record<string, string> | null>(null);
   const [sourceError, setSourceError] = useState(false);
+  const [peers, setPeers] = useState<Record<string, PeerSample> | null>(null);
+  const [peerError, setPeerError] = useState(false);
   useEffect(() => {
     if (target) requestAnimationFrame(() => document.getElementById(`blender-${target}`)?.scrollIntoView({ block: 'start' }));
   }, [target]);
@@ -75,6 +64,10 @@ export function BlenderGallery({ target }: { target?: string }) {
       .then(response => { if (!response.ok) throw new Error('Source data unavailable'); return response.json() as Promise<Record<string, string>>; })
       .then(data => { if (active) setSources(data); })
       .catch(() => { if (active) setSourceError(true); });
+    fetch(`${import.meta.env.BASE_URL}peer-source-data.json`)
+      .then(response => { if (!response.ok) throw new Error('Comparison source unavailable'); return response.json() as Promise<Record<string, PeerSample>>; })
+      .then(data => { if (active) setPeers(data); })
+      .catch(() => { if (active) setPeerError(true); });
     return () => { active = false; };
   }, []);
 
@@ -83,19 +76,18 @@ export function BlenderGallery({ target }: { target?: string }) {
       <div className="blender-eyebrow">DEEPINFER · A VISUAL SYSTEMS EXPLAINER</div>
       <h1>Inside DeepInfer’s inference system.</h1>
       <p>DeepSeek reports an average input cache-hit rate of 96% in its production table, a roughly 100 PiB shared 3FS store, and retention of roughly 3 days for agents and 7 days for chat. <Link to="/article/goals/production-table">Performance table</Link> · <Link to={fileRoute('doc/inference_deployment_qa.md', 151)}>Storage design</Link></p>
-      <p>Follow the cache, replay, expert placement, speculative verification and scheduling paths through the production architecture and the released engine.</p>
-      <div className="workshop-legend" aria-label="Visual key"><span><i className="legend-state"/> Saved state</span><span><i className="legend-new"/> New or recomputed work</span><span><i className="legend-expert"/> Expert work</span><span><i className="legend-output"/> Output</span></div>
+      <p>Play or step through cache, replay, expert placement, speculative verification and scheduling. Each animation follows the source and compares the corresponding path in vLLM or SGLang.</p>
       <a className="blender-download-all" href={asset('workshop-scenes', 'zip')} download><Download size={15}/> Download the six Blender files</a>
     </header>
 
     <RequestPath/>
 
     <details className="workshop-film">
-      <summary><span>Watch the full system animation</span><small>~1 MIN · SILENT</small></summary>
+      <summary><span>Watch the complete walkthrough</span><small>~2 MIN · SILENT</small></summary>
       <video controls preload="none" playsInline poster={asset('story-cache', 'jpg')} aria-label="The complete silent DeepInfer workshop animation">
         <source src={asset('story-full', 'mp4')} type="video/mp4"/>Your browser does not support embedded video. <a href={asset('story-full', 'mp4')}>Download the animation</a>.
       </video>
-      <p>Five mechanisms, followed by the full production architecture.</p>
+      <p>Six module walkthroughs, from cache through the complete request path.</p>
     </details>
 
     <nav className="blender-index" aria-label="Jump to a workshop chapter">
@@ -110,21 +102,13 @@ export function BlenderGallery({ target }: { target?: string }) {
           <span className="blender-number">{index === 5 ? '↗' : String(index + 1).padStart(2, '0')}</span>
           <div><div className="blender-eyebrow">{scene.category}</div><h2 id={`blender-title-${scene.id}`}>{scene.title}</h2></div>
         </div>
-        <div className="blender-scene-grid">
-          <div className="blender-scene-main"><div className="blender-scene-copy">
-            <div className="blender-copy-label">THE MECHANISM</div>
-            <p className="workshop-lede">{scene.description}</p>
-            <div className="blender-note">{scene.context}</div>
-            <div className="scene-implementation"><span>IN THE CODE</span><Evidence link={scene.implementation}/></div>
-          </div><CodeExcerpt sample={scene.sample} source={sources?.[scene.sample.path]} error={sourceError || (!!sources && !sources[scene.sample.path])}/></div>
-          <div className="blender-visual"><div className="blender-player">
-            <video controls preload="none" playsInline poster={asset(scene.id, 'jpg')} aria-label={`${scene.title}: silent Blender animation`}>
-              <source src={asset(scene.id, 'mp4')} type="video/mp4" />
-              Your browser does not support embedded video. <a href={asset(scene.id, 'mp4')}>Download the animation</a>.
-            </video>
-            <div className="blender-player-caption"><span>VISUALIZATION · {index === 5 ? 'FINALE' : `CHAPTER ${index + 1}`}</span><span>10 SEC · SILENT</span></div>
-          </div><a className="blender-download" href={asset(scene.id, 'blend')} download><Download size={15}/> Download editable scene</a></div>
+        <div className="blender-scene-copy">
+          <div className="blender-copy-label">THE MECHANISM</div>
+          <p className="workshop-lede">{scene.description}</p>
+          <div className="blender-note">{scene.context}</div>
+          <div className="scene-implementation"><span>IN THE CODE</span><Evidence link={scene.implementation}/></div>
         </div>
+        <ModuleAnimation sceneId={scene.id} title={scene.title} sources={sources} sourceError={sourceError} peers={peers} peerError={peerError}/>
         <div className="workshop-detail-grid">
           <div className="workshop-explanation"><div className="blender-copy-label">HOW IT WORKS</div>{scene.explanation.map(paragraph => <p key={paragraph.text}>{paragraph.text} <span className="inline-sources">{paragraph.sources.map(link => <Evidence key={link.href} link={link}/>)}</span></p>)}</div>
           <aside className="workshop-conversation"><div className="workshop-conversation-title"><MessageCircle size={15}/><span>IN THE CONVERSATION</span></div><blockquote>“{scene.social.quote}”<cite>— {scene.social.quoteBy}</cite></blockquote><p>{scene.social.text}</p><div>{scene.social.links.map(link => <Evidence key={link.href} link={link}/>)}</div></aside>
