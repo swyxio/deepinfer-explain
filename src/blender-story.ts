@@ -1,4 +1,4 @@
-const file = (path: string, line: number) => `#file/${encodeURIComponent(path)}/L${line}`;
+import { fileRoute as file } from './routes';
 
 export type StoryLink = { label: string; href: string; external?: boolean };
 export type WorkshopScene = {
@@ -26,10 +26,10 @@ export const blenderScenes: WorkshopScene[] = [
       { label: 'swyx’s note', href: 'https://x.com/swyx/status/2112587397380943953', external: true },
     ] },
     links: [
-      { label: 'DeepSeek’s performance table', href: '#article/goals/production-table' },
+      { label: 'DeepSeek’s performance table', href: '/article/goals/production-table' },
       { label: 'Production cache and retention', href: file('doc/inference_deployment_qa.md', 129) },
       { label: 'Engine block manager', href: file('csrc/engine/block_manager.hpp', 14) },
-      { label: 'PagedAttention research', href: '#research/pagedattention' },
+      { label: 'PagedAttention research', href: '/research/pagedattention' },
     ],
   },
   {
@@ -45,9 +45,9 @@ export const blenderScenes: WorkshopScene[] = [
     ] },
     links: [
       { label: 'Encoder and decoder replay', href: file('doc/inference_deployment_qa.md', 179) },
-      { label: 'Annotated replay chapter', href: '#module/yoco' },
-      { label: 'V4.1 model report', href: '#research/v41' },
-      { label: 'YOCO comparison', href: '#research/yoco' },
+      { label: 'Annotated replay chapter', href: '/module/yoco' },
+      { label: 'V4.1 model report', href: '/research/v41' },
+      { label: 'YOCO comparison', href: '/research/yoco' },
     ],
   },
   {
@@ -65,7 +65,7 @@ export const blenderScenes: WorkshopScene[] = [
     links: [
       { label: 'Expert placement policy', href: file('deepinfer/model_executor/eplb/policy.py', 73) },
       { label: 'Wide-EP and load balancing', href: file('doc/inference_deployment_qa.md', 45) },
-      { label: 'Annotated MoE chapter', href: '#module/moe' },
+      { label: 'Annotated MoE chapter', href: '/module/moe' },
     ],
   },
   {
@@ -83,7 +83,7 @@ export const blenderScenes: WorkshopScene[] = [
     links: [
       { label: 'Allocate verification budget', href: file('deepinfer/model_executor/layers/tilelang_ops/schedule_mtp_varlen.py', 11) },
       { label: 'Deployment measurements', href: file('doc/inference_deployment_qa.md', 239) },
-      { label: 'DSpark research', href: '#research/dspark' },
+      { label: 'DSpark research', href: '/research/dspark' },
     ],
   },
   {
@@ -101,7 +101,7 @@ export const blenderScenes: WorkshopScene[] = [
     links: [
       { label: 'Engine scheduling step', href: file('deepinfer/engine/llm_engine.py', 860) },
       { label: 'Scheduling Q&A and prior art', href: file('doc/inference_deployment_qa.md', 266) },
-      { label: 'NanoFlow comparison', href: '#research/nanoflow' },
+      { label: 'NanoFlow comparison', href: '/research/nanoflow' },
     ],
   },
   {
@@ -118,11 +118,11 @@ export const blenderScenes: WorkshopScene[] = [
       { label: 'GDP on Latent Space’s post', href: 'https://x.com/bookwormengr/status/2112636749293949122', external: true },
     ] },
     links: [
-      { label: 'Interactive request flow', href: '#codemap' },
+      { label: 'Interactive request flow', href: '/codemap' },
       { label: 'Production architecture', href: file('doc/inference_deployment_qa.md', 23) },
       { label: 'What the release includes', href: file('README.md', 38) },
-      { label: 'V4.1 model report', href: '#research/v41' },
-      { label: 'DistServe comparison', href: '#research/distserve' },
+      { label: 'V4.1 model report', href: '/research/v41' },
+      { label: 'DistServe comparison', href: '/research/distserve' },
     ],
   },
 ];

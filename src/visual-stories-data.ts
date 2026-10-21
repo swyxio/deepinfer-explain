@@ -9,7 +9,7 @@ export type VisualStory = {
   links: { label: string; href: string; kind: 'code' | 'paper' | 'context' }[];
 };
 
-const file = (path: string, line: number) => `#file/${encodeURIComponent(path)}/L${line}`;
+import { fileRoute as file } from './routes';
 
 export const visualStories: VisualStory[] = [
   {
@@ -26,11 +26,11 @@ export const visualStories: VisualStory[] = [
     ],
     boundary: 'This illustrates the described production cache path. The release includes in-engine block management, but not the shared KV storage service.',
     links: [
-      { label: 'Reported production figures', href: '#article/goals/production-table', kind: 'context' },
+      { label: 'Reported production figures', href: '/article/goals/production-table', kind: 'context' },
       { label: 'Production cache design', href: file('doc/inference_deployment_qa.md', 129), kind: 'context' },
       { label: 'Prefix matching and fetching', href: file('doc/inference_deployment_qa.md', 155), kind: 'context' },
       { label: 'In-engine block manager', href: file('csrc/engine/block_manager.hpp', 14), kind: 'code' },
-      { label: 'PagedAttention', href: '#research/pagedattention', kind: 'paper' },
+      { label: 'PagedAttention', href: '/research/pagedattention', kind: 'paper' },
     ],
   },
   {
@@ -50,7 +50,7 @@ export const visualStories: VisualStory[] = [
       { label: 'Production architecture and parallelism', href: file('doc/inference_deployment_qa.md', 23), kind: 'context' },
       { label: 'Release boundary', href: file('README.md', 38), kind: 'context' },
       { label: 'Offline scheduler', href: file('csrc/engine/scheduler.hpp', 622), kind: 'code' },
-      { label: 'DistServe', href: '#research/distserve', kind: 'paper' },
+      { label: 'DistServe', href: '/research/distserve', kind: 'paper' },
     ],
   },
   {
@@ -70,8 +70,8 @@ export const visualStories: VisualStory[] = [
       { label: 'Encoder and decoder replay', href: file('doc/inference_deployment_qa.md', 179), kind: 'context' },
       { label: 'Replay configuration', href: file('README.md', 25), kind: 'code' },
       { label: 'Truncation modes', href: file('deepinfer/environ.py', 188), kind: 'code' },
-      { label: 'V4.1 model report', href: '#research/v41', kind: 'paper' },
-      { label: 'YOCO', href: '#research/yoco', kind: 'paper' },
+      { label: 'V4.1 model report', href: '/research/v41', kind: 'paper' },
+      { label: 'YOCO', href: '/research/yoco', kind: 'paper' },
     ],
   },
   {
@@ -92,7 +92,7 @@ export const visualStories: VisualStory[] = [
       { label: 'Allocate verification budget', href: file('deepinfer/model_executor/layers/tilelang_ops/schedule_mtp_varlen.py', 11), kind: 'code' },
       { label: 'Verify draft tokens', href: file('deepinfer/model_executor/layers/sampler.py', 411), kind: 'code' },
       { label: 'Settings and measured trade-offs', href: file('doc/inference_deployment_qa.md', 239), kind: 'context' },
-      { label: 'DSpark paper', href: '#research/dspark', kind: 'paper' },
+      { label: 'DSpark paper', href: '/research/dspark', kind: 'paper' },
     ],
   },
   {
@@ -112,7 +112,7 @@ export const visualStories: VisualStory[] = [
       { label: 'Worker execution order', href: file('deepinfer/worker/worker.py', 89), kind: 'code' },
       { label: 'Engine scheduling step', href: file('deepinfer/engine/llm_engine.py', 860), kind: 'code' },
       { label: 'Production pipeline explanation', href: file('doc/inference_deployment_qa.md', 266), kind: 'context' },
-      { label: 'NanoFlow comparison', href: '#research/nanoflow', kind: 'paper' },
+      { label: 'NanoFlow comparison', href: '/research/nanoflow', kind: 'paper' },
     ],
   },
 ];

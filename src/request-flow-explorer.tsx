@@ -1,3 +1,4 @@
+import { Link } from 'react-router';
 import { useEffect, useRef } from 'react';
 import { ArrowLeft, ArrowRight, ArrowUpRight, BookOpen, Code2, CornerUpLeft } from 'lucide-react';
 import { modules } from './modules';
@@ -5,7 +6,7 @@ import { readings } from './research';
 import { requestFlowGroups, requestFlowStages, requestFlowTransitions } from './request-flow';
 import './request-flow-explorer.css';
 
-const stageRoute = (id: string) => `#codemap/${id}`;
+const stageRoute = (id: string) => `/codemap/${id}`;
 const stagesInMap = requestFlowGroups.flat().map(id => requestFlowStages.find(stage => stage.id === id)!);
 
 export function RequestFlowExplorer({ selected, sourceRoute }: { selected?: string; sourceRoute: (path: string, line?: number) => string }) {
@@ -37,14 +38,14 @@ export function RequestFlowExplorer({ selected, sourceRoute }: { selected?: stri
           <div className={group.length > 1 ? 'request-map-branch' : 'request-map-single'} role={group.length > 1 ? 'group' : undefined} aria-label={group.length > 1 ? 'Scheduler chooses prefill or decode' : undefined}>{group.map(id => {
             const item = stagesInMap.find(candidate => candidate.id === id)!;
             const number = stagesInMap.indexOf(item) + 1;
-            return <a key={item.id} href={stageRoute(item.id)} className={item.id === stage.id ? 'request-map-stage is-current' : 'request-map-stage'} aria-current={item.id === stage.id ? 'step' : undefined}>
+            return <Link key={item.id} to={stageRoute(item.id)} className={item.id === stage.id ? 'request-map-stage is-current' : 'request-map-stage'} aria-current={item.id === stage.id ? 'step' : undefined}>
               <span>{String(number).padStart(2, '0')} <small>{item.phase}</small></span><strong>{item.title}</strong>
-            </a>;
+            </Link>;
           })}</div>{groupIndex < requestFlowGroups.length - 1 && <span className="request-map-connector"><ArrowRight size={16} className="request-map-arrow" aria-hidden="true"/>{group[0] === 'update' && <small>all finished</small>}</span>}
         </li>)}</ol>
       </div>
     </nav>
-    <div className="request-map-loop"><CornerUpLeft size={16} aria-hidden="true"/><span>After state updates, unfinished prompt chunks or generated sequences return to <a href={stageRoute('schedule')}>scheduling</a>. The two branches are alternatives, not sequential stages.</span></div>
+    <div className="request-map-loop"><CornerUpLeft size={16} aria-hidden="true"/><span>After state updates, unfinished prompt chunks or generated sequences return to <Link to={stageRoute('schedule')}>scheduling</Link>. The two branches are alternatives, not sequential stages.</span></div>
     <p className="sr-only" aria-live="polite">Component {index + 1} of {stagesInMap.length}: {stage.title}</p>
     <article className="request-map-detail" aria-labelledby="request-map-stage-title">
       <div className="request-map-stage-label">COMPONENT {String(index + 1).padStart(2, '0')} · {stage.phase}</div>
@@ -53,11 +54,11 @@ export function RequestFlowExplorer({ selected, sourceRoute }: { selected?: stri
       <p className="request-map-explanation">{stage.detail}</p>
       {stage.condition && <p className="request-map-condition"><strong>Branch or condition</strong> {stage.condition}</p>}
       <div className="request-map-evidence">
-        <section><h4><Code2 size={15}/> Annotated code</h4><div className="request-map-links">{stage.code.map(source => <a href={sourceRoute(source.path, source.line)} key={`${source.path}:${source.line}`}><span><strong>{source.label}</strong><small>{source.path}:{source.line}</small></span><ArrowUpRight size={15}/></a>)}</div></section>
-        <section><h4><BookOpen size={15}/> Research & context</h4><div className="request-map-links">{papers.map(paper => <a href={`#research/${paper.id}`} key={paper.id}><span><strong>{paper.title}</strong><small>{paper.kind} · {paper.year}</small></span><ArrowUpRight size={15}/></a>)}{chapters.map(chapter => <a href={`#module/${chapter.id}`} key={chapter.id}><span><strong>{chapter.title}</strong><small>Subsystem chapter</small></span><ArrowUpRight size={15}/></a>)}</div></section>
+        <section><h4><Code2 size={15}/> Annotated code</h4><div className="request-map-links">{stage.code.map(source => <Link to={sourceRoute(source.path, source.line)} key={`${source.path}:${source.line}`}><span><strong>{source.label}</strong><small>{source.path}:{source.line}</small></span><ArrowUpRight size={15}/></Link>)}</div></section>
+        <section><h4><BookOpen size={15}/> Research & context</h4><div className="request-map-links">{papers.map(paper => <Link to={`/research/${paper.id}`} key={paper.id}><span><strong>{paper.title}</strong><small>{paper.kind} · {paper.year}</small></span><ArrowUpRight size={15}/></Link>)}{chapters.map(chapter => <Link to={`/module/${chapter.id}`} key={chapter.id}><span><strong>{chapter.title}</strong><small>Subsystem chapter</small></span><ArrowUpRight size={15}/></Link>)}</div></section>
       </div>
-      <div className="request-map-controls"><span>{next.length ? 'NEXT IN THE FLOW' : 'END OF THIS REQUEST'}</span><div>{next.length ? next.map(item => <a href={stageRoute(item.id)} key={item.id}>{item.label} <ArrowRight size={15}/></a>) : <a href={stageRoute('input')}>Start the walkthrough again <ArrowRight size={15}/></a>}</div></div>
+      <div className="request-map-controls"><span>{next.length ? 'NEXT IN THE FLOW' : 'END OF THIS REQUEST'}</span><div>{next.length ? next.map(item => <Link to={stageRoute(item.id)} key={item.id}>{item.label} <ArrowRight size={15}/></Link>) : <Link to={stageRoute('input')}>Start the walkthrough again <ArrowRight size={15}/></Link>}</div></div>
     </article>
-    <p className="request-map-disclaimer">A source-traced guide to the released offline engine, not a runtime recording. Real batches can mix requests and take optional branches. <a href="#execution">Explore detailed execution paths <ArrowRight size={12}/></a></p>
+    <p className="request-map-disclaimer">A source-traced guide to the released offline engine, not a runtime recording. Real batches can mix requests and take optional branches. <Link to="/execution">Explore detailed execution paths <ArrowRight size={12}/></Link></p>
   </section>;
 }

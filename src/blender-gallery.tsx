@@ -1,3 +1,4 @@
+import { Link } from 'react-router';
 import { useEffect, useState } from 'react';
 import { ArrowRight, ArrowUpRight, Download, FileCode2, MessageCircle } from 'lucide-react';
 import { blenderScenes, type StoryLink } from './blender-story';
@@ -10,7 +11,7 @@ function asset(id: string, extension: string) {
 }
 
 function Evidence({ link }: { link: StoryLink }) {
-  return <a href={link.href} {...(link.external ? { target: '_blank', rel: 'noreferrer' } : {})}>{link.label} <ArrowUpRight size={13} aria-hidden="true"/></a>;
+  return <Link to={link.href} {...(link.external ? { target: '_blank', rel: 'noreferrer' } : {})}>{link.label} <ArrowUpRight size={13} aria-hidden="true"/></Link>;
 }
 
 function CacheExample() {
@@ -52,9 +53,9 @@ export function BlenderGallery({ target }: { target?: string }) {
     </section>
 
     <nav className="blender-index" aria-label="Jump to a workshop chapter">
-      {blenderScenes.map((scene, index) => <a href={`#blender/${scene.id}`} key={scene.id}>
+      {blenderScenes.map((scene, index) => <Link to={`/blender/${scene.id}`} key={scene.id}>
         <span>{index === 5 ? 'FINALE' : String(index + 1).padStart(2, '0')}</span><strong>{scene.title}</strong><ArrowRight size={15}/>
-      </a>)}
+      </Link>)}
     </nav>
 
     <div className="blender-scenes">
@@ -91,7 +92,7 @@ export function BlenderGallery({ target }: { target?: string }) {
       <div className="blender-eyebrow">A NOTE ON THE NUMBERS</div>
       <h2>Revenue is not a profit margin.</h2>
       <p>DeepSeek reports $38 of revenue per GPU-hour at off-peak pricing for one cluster. Estimates of margin require assumptions about GPU, storage, network, power, and operating costs; those costs are not established by that figure.</p>
-      <div><a href="https://x.com/swyx/status/2112587397380943953" target="_blank" rel="noreferrer">swyx’s estimate <ArrowUpRight size={13}/></a><a href="https://x.com/sigdel29/status/2112624964511707198" target="_blank" rel="noreferrer">A question from the conversation <ArrowUpRight size={13}/></a><Evidence link={{ label: 'DeepSeek’s reported figure', href: '#file/doc%2Finference_deployment_qa.md/L17' }}/></div>
+      <div><a href="https://x.com/swyx/status/2112587397380943953" target="_blank" rel="noreferrer">swyx’s estimate <ArrowUpRight size={13}/></a><a href="https://x.com/sigdel29/status/2112624964511707198" target="_blank" rel="noreferrer">A question from the conversation <ArrowUpRight size={13}/></a><Evidence link={{ label: 'DeepSeek’s reported figure', href: '/file/doc/inference_deployment_qa.md/L17' }}/></div>
     </section>
     <p className="workshop-method">Community posts show what people found interesting; they are commentary, not independent verification. This is a sample of quote-posts around <a href="https://x.com/deepseek_ai/status/2112476496283775135" target="_blank" rel="noreferrer">DeepSeek’s announcement</a>, <a href="https://x.com/swyx/status/2112587397380943953" target="_blank" rel="noreferrer">swyx’s note</a>, and <a href="https://x.com/latentspacepod/status/2112588380416647205" target="_blank" rel="noreferrer">Latent Space’s translation</a>, not a census. Code links are pinned to the revision used throughout this guide.</p>
   </div>;

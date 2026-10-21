@@ -6,3 +6,5 @@ tsconfig.tsbuildinfo
 blender/.preview-frames/
 blender/output/
 blender/**/__pycache__/
+
+.wrangler/
