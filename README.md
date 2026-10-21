@@ -21,7 +21,7 @@ pnpm dev
 
 ## Deploy
 
-The production site runs as the `deepinfer-explain` Cloudflare Worker at `inf.latent.space`. After `pnpm build`, run `pnpm exec wrangler deploy` with access to the Latent Space Cloudflare account. `wrangler.jsonc` enables SPA fallback so directly opening or refreshing a nested path serves the app. Builds are currently deployed manually.
+The production site runs as the `deepinfer-explain` Cloudflare Worker at `inf.latent.space`. After `pnpm build`, run `pnpm exec wrangler deploy` with access to the Latent Space Cloudflare account. `wrangler.jsonc` enables SPA fallback so directly opening or refreshing a nested path serves the app. The Worker handles byte-range requests for the Blender MP4s so browsers can seek to each phase. Builds are currently deployed manually.
 
 ## Update and verify source annotations
 
