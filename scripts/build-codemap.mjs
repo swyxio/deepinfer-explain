@@ -26,16 +26,19 @@ async function loadData(filename) {
 }
 async function loadTranslation() {
   const [source, translation] = await Promise.all([readFile('src/translation.ts', 'utf8'), readFile('src/article-translation.txt', 'utf8')]);
-  const prepared = source.replace("import translation from './article-translation.txt?raw';", `const translation = ${JSON.stringify(translation)};`);
-  if (prepared === source) throw new Error('Translation import not found.');
+  if (!source.includes("import translation from './article-translation.txt?raw';")) throw new Error('Translation import not found.');
+  const images = [...source.matchAll(/^import (\w+) from '(\.\/assets\/article\/[^']+\.png)';$/gm)];
+  await Promise.all(images.map(([, , path]) => readFile(`src/${path.slice(2)}`)));
+  const prepared = source.replace("import translation from './article-translation.txt?raw';", `const translation = ${JSON.stringify(translation)};`)
+    .replace(/^import (\w+) from '(\.\/assets\/article\/[^']+\.png)';$/gm, (_, name, path) => `const ${name} = ${JSON.stringify(path)};`);
   const compiled = ts.transpileModule(prepared, { compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 } }).outputText;
   return import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
 }
-const [{ fileNotes, folderNotes }, { executionPaths }, { modules }, { articleSections }, { kernelSymbolNotes }, { runtimeSymbolNotes }, { supportSymbolNotes }, { additionalSymbolNotes }, { requestFlowStages, requestFlowGroups, requestFlowTransitions }, { readings }, { coverageRows, modelComparisons, modelSources, modelStageSources }, translation] = await Promise.all([
+const [{ fileNotes, folderNotes }, { executionPaths }, { modules }, { articleSections }, { kernelSymbolNotes }, { runtimeSymbolNotes }, { supportSymbolNotes }, { additionalSymbolNotes }, { requestFlowStages, requestFlowGroups, requestFlowTransitions }, { readings }, { coverageRows, modelComparisons, modelSources, modelStageSources }, { visualStories }, translation] = await Promise.all([
   loadData('src/file-notes.ts'), loadData('src/execution-paths.ts'), loadData('src/modules.ts'), loadData('src/article-notes.ts'),
   loadData('src/symbol-notes-kernels.ts'), loadData('src/symbol-notes-runtime.ts'), loadData('src/symbol-notes-support.ts'),
   loadData('src/symbol-notes-additional.ts'),
-  loadData('src/request-flow.ts'), loadData('src/research.ts'), loadData('src/model-support.ts'), loadTranslation(),
+  loadData('src/request-flow.ts'), loadData('src/research.ts'), loadData('src/model-support.ts'), loadData('src/visual-stories-data.ts'), loadTranslation(),
 ]);
 const manifest = [];
 const contents = {};
@@ -98,6 +101,17 @@ if (new Set(placedArticleNotes).size !== placedArticleNotes.length || placedArti
 for (const [line, highlights] of Object.entries(translation.translationHighlights)) for (const highlight of highlights) if (!translation.translationLines[Number(line) - 1]?.includes(highlight)) throw new Error(`Translation highlight missing on line ${line}`);
 const moduleIds = new Set(modules.map(module => module.id));
 const readingIds = new Set(readings.map(reading => reading.id));
+if (visualStories.length !== 5 || new Set(visualStories.map(story => story.id)).size !== visualStories.length) throw new Error('Expected five unique visual stories.');
+for (const story of visualStories) {
+  if (story.stages.length !== 4) throw new Error(`Visual story ${story.id} must have four stages.`);
+  for (const link of story.links) {
+    const parts = link.href.split('/');
+    if (parts[0] === '#file' && parts.length === 3) verifyAnchor(decodeURIComponent(parts[1]), Number(parts[2].slice(1)), `visual story ${story.id}`);
+    else if (parts[0] === '#research' && parts.length === 2 && readingIds.has(parts[1])) continue;
+    else if (parts[0] === '#article' && parts.length === 3 && articleSections.some(section => section.id === parts[1] && section.annotations.some(note => note.id === parts[2]))) continue;
+    else throw new Error(`Invalid visual story link ${story.id}: ${link.href}`);
+  }
+}
 const stageIds = new Set(requestFlowStages.map(stage => stage.id));
 const groupedStageIds = requestFlowGroups.flat();
 if (stageIds.size !== requestFlowStages.length || groupedStageIds.length !== stageIds.size || new Set(groupedStageIds).size !== stageIds.size || groupedStageIds.some(id => !stageIds.has(id))) throw new Error('Request flow groups must contain every stage exactly once.');
@@ -147,4 +161,4 @@ for (const section of articleSections) for (const annotation of section.annotati
 await writeFile('src/source-manifest.json', JSON.stringify(manifest) + '\n');
 await writeFile('public/source-data.json', JSON.stringify(contents) + '\n');
 console.log(`Indexed ${manifest.length} tracked entries: ${Object.keys(contents).length} text files, ${manifest.filter(x => x.kind === 'binary').length} binary assets, ${manifest.filter(x => x.kind === 'submodule').length} submodules.`);
-console.log(`Validated ${firstParty.length} file notes, ${folderPaths.size} folder and vendor notes, ${symbolNoteCount} detailed anchors across ${annotatedFiles.size} files, ${executionPaths.reduce((n, trace) => n + trace.steps.length, 0)} trace anchors, ${requestFlowStages.length} request-flow stages, article and model-support source anchors, and ${placedArticleNotes.length} translation notes.`);
+console.log(`Validated ${firstParty.length} file notes, ${folderPaths.size} folder and vendor notes, ${symbolNoteCount} detailed anchors across ${annotatedFiles.size} files, ${executionPaths.reduce((n, trace) => n + trace.steps.length, 0)} trace anchors, ${requestFlowStages.length} request-flow stages, ${visualStories.length} visual stories, article and model-support source anchors, and ${placedArticleNotes.length} translation notes.`);
