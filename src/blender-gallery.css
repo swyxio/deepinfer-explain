@@ -1,0 +1,33 @@
+.blender-page { padding-top: 64px; }
+.blender-intro { max-width: 780px; }
+.blender-eyebrow { font: 600 10px 'IBM Plex Mono', monospace; letter-spacing: .12em; color: #7190b4; }
+.blender-intro h1 { color: #182d4b; font-size: clamp(39px, 5vw, 57px); letter-spacing: -.05em; line-height: 1.08; margin: 15px 0; }
+.blender-intro > p { max-width: 660px; color: #607994; font-size: 15px; line-height: 1.75; margin: 0; }
+.blender-disclaimer { margin-top: 20px; color: #69819a; font-size: 11px; line-height: 1.6; }
+.blender-download-all { display: inline-flex; align-items: center; gap: 8px; margin-top: 20px; padding: 10px 13px; border: 1px solid #cddff0; border-radius: 5px; background: #e7f1fa; color: #315f90; font-size: 12px; font-weight: 700; }
+.blender-download-all:hover { background: #dcebf8; }
+.blender-index { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 34px 0 12px; border: 1px solid #dbe5f0; border-radius: 7px; overflow: hidden; background: white; }
+.blender-index a { display: flex; flex-direction: column; min-width: 0; min-height: 112px; padding: 16px; border-right: 1px solid #e5ecf3; color: #456992; }
+.blender-index a:last-child { border-right: 0; }
+.blender-index a:hover { background: #f0f6fc; }
+.blender-index a span { font: 10px 'IBM Plex Mono', monospace; color: #9baec2; }
+.blender-index a strong { font-size: 12px; line-height: 1.35; margin: 9px 0; color: #304c6b; }
+.blender-index a svg { margin-top: auto; }
+.blender-scene { padding: 48px 0 52px; border-bottom: 1px solid #dfe7f0; scroll-margin-top: 24px; }
+.blender-scene-heading { display: flex; align-items: flex-start; gap: 23px; margin-bottom: 22px; }
+.blender-number { font: 11px 'IBM Plex Mono', monospace; color: #a0b2c6; padding-top: 3px; }
+.blender-scene-heading h2 { margin: 9px 0 0; font-size: clamp(26px, 3vw, 34px); line-height: 1.15; letter-spacing: -.035em; color: #233c5b; }
+.blender-scene-grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(220px, .85fr); gap: 25px; align-items: start; }
+.blender-player { min-width: 0; overflow: hidden; border-radius: 7px; background: #13243a; box-shadow: 0 6px 22px #1c375015; }
+.blender-player video { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #101d2f; }
+.blender-player-caption { display: flex; justify-content: space-between; gap: 10px; padding: 12px 15px; color: #9db2cb; font: 9px 'IBM Plex Mono', monospace; letter-spacing: .05em; }
+.blender-scene-copy { padding: 7px 0; }
+.blender-copy-label { color: #8fa3ba; font: 600 9px 'IBM Plex Mono', monospace; letter-spacing: .1em; }
+.blender-scene-copy > p { color: #405d7c; line-height: 1.7; font-size: 13px; margin: 10px 0 16px; }
+.blender-note { border-left: 2px solid #b7cde4; padding-left: 12px; color: #748ba1; font-size: 11px; line-height: 1.65; }
+.blender-links { display: grid; justify-items: start; gap: 12px; margin-top: 22px; }
+.blender-links a { display: inline-flex; align-items: center; gap: 7px; color: #426e9e; font-size: 11px; font-weight: 700; }
+.blender-links a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.blender-links a.blender-download { padding: 10px 12px; background: #e6f0fa; border: 1px solid #d1e3f3; border-radius: 5px; color: #315f90; }
+@media (max-width: 1050px) { .blender-scene-grid { grid-template-columns: minmax(0, 1.4fr) minmax(200px, 1fr); gap: 20px; } }
+@media (max-width: 760px) { .blender-page { padding-top: 45px; } .blender-index { grid-template-columns: repeat(2, minmax(0, 1fr)); } .blender-index a { min-height: 93px; border-bottom: 1px solid #e5ecf3; } .blender-index a:nth-child(even) { border-right: 0; } .blender-scene { padding: 36px 0 42px; } .blender-scene-grid { grid-template-columns: 1fr; gap: 16px; } .blender-scene-heading { gap: 14px; } .blender-scene-copy { padding: 0; } }
