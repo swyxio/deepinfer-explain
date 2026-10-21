@@ -1,7 +1,7 @@
 import { BrowserRouter, Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, BookOpen, Box, Boxes, ChevronDown, CircleHelp, Clapperboard, Code2, Cpu, ExternalLink, FileCode2, GitBranch, Layers3, Map, Menu, Search, Workflow, X } from 'lucide-react';
+import { ArrowDownRight, ArrowLeft, Gauge, ArrowRight, ArrowUpRight, BookOpen, Boxes, ChevronDown, CircleHelp, Code2, Cpu, ExternalLink, FileCode2, GitBranch, Layers3, Map, Menu, Search, Workflow, X } from 'lucide-react';
 import { modules, type Module, type SourceFile } from './modules';
 import { comparisons, readings } from './research';
 import snippets from './snippets.json';
@@ -17,6 +17,7 @@ import { modelComparisons } from './model-support';
 import { VisualStoriesPage } from './visual-stories';
 import { visualStories } from './visual-stories-data';
 import { BlenderGallery, blenderScenes } from './blender-gallery';
+import { MechanismsPage } from './mechanisms';
 import { folderRoute, legacyPath, parseFileRoute, routeFromPath } from './routes';
 import './style.css';
 
@@ -27,8 +28,7 @@ const snippetMap = snippets as Record<string, { start: number; lines: string[] }
 
 const navItems = [
   { id: 'overview', title: 'Annotated deployment', icon: Layers3 },
-  { id: 'blender', title: '3D Blender lab', icon: Box },
-  { id: 'visuals', title: 'Five visual stories', icon: Clapperboard },
+  { id: 'how', title: 'How it works', icon: Gauge },
   { id: 'codemap', title: 'Code map', icon: Map },
   { id: 'models', title: 'Models & hardware', icon: Cpu },
   { id: 'execution', title: 'Execution paths', icon: Workflow },
@@ -152,6 +152,7 @@ function App() {
   if (module) body = <ModulePage key={module.id} item={module}/>;
   else if (route === 'codemap' || route.startsWith('codemap/')) body = <CodemapPage flowStep={route.split('/')[1]}/>;
   else if (route === 'models' || route.startsWith('models/')) body = <ModelSupportPage target={route.split('/')[1]}/>;
+  else if (route === 'how') body = <MechanismsPage/>;
   else if (route === 'blender' || route.startsWith('blender/')) body = <BlenderGallery target={route.split('/')[1]}/>;
   else if (route === 'visuals' || route.startsWith('visuals/')) body = <VisualStoriesPage target={route.split('/')[1]}/>;
   else if (route.startsWith('folder/')) body = <CodemapPage kind="folder" path={decode(route.slice(7))}/>;
